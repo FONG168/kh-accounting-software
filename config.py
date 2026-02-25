@@ -17,7 +17,11 @@ class Config:
     SESSION_COOKIE_SECURE = os.environ.get('FLASK_ENV') == 'production'
 
     # ── Database ──────────────────────────────────────────────
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', f'sqlite:///{os.path.join(BASE_DIR, "accounting.db")}')
+    # Render provides DATABASE_URL with postgres:// but SQLAlchemy requires postgresql://
+    _db_url = os.environ.get('DATABASE_URL', f'sqlite:///{os.path.join(BASE_DIR, "accounting.db")}')
+    if _db_url.startswith('postgres://'):
+        _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+    SQLALCHEMY_DATABASE_URI = _db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ── Company Defaults ──────────────────────────────────────

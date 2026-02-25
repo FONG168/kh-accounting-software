@@ -1,3 +1,9 @@
+databases:
+  - name: kh-accounting-db
+    plan: free
+    databaseName: kh_accounting
+    user: kh_admin
+
 services:
   - type: web
     name: kh-accounting-software
@@ -11,3 +17,7 @@ services:
         generateValue: true
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kh-accounting-db
+          property: connectionString
