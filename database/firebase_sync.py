@@ -13,6 +13,8 @@ Setup:
 """
 
 import os
+import json
+import tempfile
 import logging
 import threading
 from datetime import date, datetime
@@ -33,23 +35,37 @@ def is_enabled():
 
 def init_firebase(app):
     """
-    Call once at startup.  Reads the credentials file path from
-    app.config['FIREBASE_CREDENTIALS_PATH'] and connects to Firestore.
+    Call once at startup.  Reads credentials from either:
+    1. FIREBASE_CREDENTIALS_JSON env var (JSON string — for cloud deployments)
+    2. FIREBASE_CREDENTIALS_PATH file on disk (for local development)
     """
     global _firestore_client, _sync_enabled
 
     cred_path = app.config.get('FIREBASE_CREDENTIALS_PATH', '')
-    if not cred_path or not os.path.exists(cred_path):
-        logger.info('Firebase credentials not found — cloud sync disabled. '
-                     'Place firebase-credentials.json in project root to enable.')
-        print('ℹ  Firebase Cloud Sync: DISABLED  (no credentials file)')
-        return
+    cred_json = os.environ.get('FIREBASE_CREDENTIALS_JSON', '')
 
+    # Determine credential source
+    cred = None
     try:
         import firebase_admin
-        from firebase_admin import credentials, firestore as fs
+        from firebase_admin import credentials as fb_credentials, firestore as fs
 
-        cred = credentials.Certificate(cred_path)
+        if cred_json:
+            # Cloud deployment: credentials passed as JSON env var
+            cred_dict = json.loads(cred_json)
+            cred = fb_credentials.Certificate(cred_dict)
+            logger.info('Using Firebase credentials from FIREBASE_CREDENTIALS_JSON env var.')
+        elif cred_path and os.path.exists(cred_path):
+            # Local development: credentials file on disk
+            cred = fb_credentials.Certificate(cred_path)
+            logger.info('Using Firebase credentials from file.')
+        else:
+            logger.info('Firebase credentials not found — cloud sync disabled. '
+                         'Place firebase-credentials.json in project root or set '
+                         'FIREBASE_CREDENTIALS_JSON env var to enable.')
+            print('ℹ  Firebase Cloud Sync: DISABLED  (no credentials)')
+            return
+
         firebase_admin.initialize_app(cred)
         _firestore_client = fs.client()
         _sync_enabled = True
