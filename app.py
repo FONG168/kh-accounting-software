@@ -433,11 +433,6 @@ def seed_ifrs_accounts(user_id):
 # ─── RUN ────────────────────────────────────────────────────────────────
 app = create_app()
 
-# Serve static files reliably on Vercel / serverless platforms
-if os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production':
-    from whitenoise import WhiteNoise
-    app.wsgi_app = WhiteNoise(app.wsgi_app, root=os.path.join(os.path.dirname(__file__), 'static'), prefix='/static/')
-
 if __name__ == '__main__':
     debug = os.environ.get('FLASK_ENV', 'development') != 'production'
     app.run(debug=debug, port=5000)

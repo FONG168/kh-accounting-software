@@ -3,10 +3,6 @@ import secrets
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-# Vercel serverless: writable dir is /tmp
-IS_VERCEL = os.environ.get('VERCEL', '') == '1'
-DB_DIR = '/tmp' if IS_VERCEL else BASE_DIR
-
 
 class Config:
     # ── Security ──────────────────────────────────────────────
@@ -21,7 +17,7 @@ class Config:
     SESSION_COOKIE_SECURE = os.environ.get('FLASK_ENV') == 'production'
 
     # ── Database ──────────────────────────────────────────────
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', f'sqlite:///{os.path.join(DB_DIR, "accounting.db")}')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', f'sqlite:///{os.path.join(BASE_DIR, "accounting.db")}')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ── Company Defaults ──────────────────────────────────────
