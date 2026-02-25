@@ -41,7 +41,7 @@ def get_account_balance(account_id, start_date=None, end_date=None):
     if end_date:
         query = query.filter(JournalEntry.date <= end_date)
     result = query.first()
-    return result.total_debit or 0, result.total_credit or 0
+    return float(result.total_debit or 0), float(result.total_credit or 0)
 
 
 # ─── PROFIT & LOSS (INCOME STATEMENT) ────────────────────
