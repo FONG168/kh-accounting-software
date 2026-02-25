@@ -449,9 +449,11 @@ IFRS_ACCOUNTS = [
 
 def seed_ifrs_accounts(user_id):
     """Add additional IFRS-compliant accounts for a specific user."""
+    # Batch-check existing codes in one query instead of per-account
+    existing_codes = {a.code for a in Account.query.filter_by(user_id=user_id).with_entities(Account.code).all()}
+    added = False
     for acct in IFRS_ACCOUNTS:
-        existing = Account.query.filter_by(code=acct['code'], user_id=user_id).first()
-        if not existing:
+        if acct['code'] not in existing_codes:
             db.session.add(Account(
                 code=acct['code'],
                 name=acct['name'],
@@ -461,7 +463,9 @@ def seed_ifrs_accounts(user_id):
                 is_system=True,
                 user_id=user_id,
             ))
-    db.session.commit()
+            added = True
+    if added:
+        db.session.commit()
 
 
 # ─── RUN ────────────────────────────────────────────────────────────────
