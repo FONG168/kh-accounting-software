@@ -3,6 +3,16 @@ import secrets
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
+# Auto-load .env file so localhost uses the same database as production
+_env_path = os.path.join(BASE_DIR, '.env')
+if os.path.exists(_env_path):
+    with open(_env_path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, val = line.split('=', 1)
+                os.environ.setdefault(key.strip(), val.strip())
+
 
 class Config:
     # ── Security ──────────────────────────────────────────────
