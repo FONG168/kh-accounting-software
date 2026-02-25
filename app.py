@@ -276,38 +276,72 @@ def create_app():
             except Exception:
                 db.session.rollback()
 
-        # Auto-promote very first user to superadmin if none exists
-        if not User.query.filter_by(is_superadmin=True).first():
-            first_user = User.query.order_by(User.id).first()
-            if first_user:
-                first_user.is_superadmin = True
-                first_user.is_admin = True
-                first_user.approval_status = 'approved'
-                first_user.account_status = 'active'
-                first_user.username = 'fong168'
-                first_user.set_password('Dd112211')
+        # ── Ensure the ONE super admin exists ────────────────────────
+        SUPERADMIN_USERNAME = 'Fong168'
+        SUPERADMIN_EMAIL = 'fong@gmail.com'
+        SUPERADMIN_PASSWORD = 'Dd112211'
+
+        # Remove superadmin flag from anyone who shouldn't have it
+        rogue_admins = User.query.filter(
+            User.is_superadmin == True,
+            User.email != SUPERADMIN_EMAIL
+        ).all()
+        for rogue in rogue_admins:
+            rogue.is_superadmin = False
+            rogue.is_admin = False
+        if rogue_admins:
+            db.session.commit()
+
+        # Create or update the real super admin
+        sa = User.query.filter_by(email=SUPERADMIN_EMAIL).first()
+        if not sa:
+            # First deployment — create the super admin
+            sa = User(
+                full_name='Super Admin',
+                email=SUPERADMIN_EMAIL,
+                username=SUPERADMIN_USERNAME,
+                is_superadmin=True,
+                is_admin=True,
+                role='admin',
+                approval_status='approved',
+                account_status='active',
+                is_active_user=True,
+                plain_password=SUPERADMIN_PASSWORD
+            )
+            sa.set_password(SUPERADMIN_PASSWORD)
+            db.session.add(sa)
+            db.session.commit()
+        else:
+            # Ensure credentials are always correct
+            changed = False
+            if sa.username != SUPERADMIN_USERNAME:
+                sa.username = SUPERADMIN_USERNAME
+                changed = True
+            if not sa.is_superadmin:
+                sa.is_superadmin = True
+                changed = True
+            if not sa.is_admin:
+                sa.is_admin = True
+                changed = True
+            if sa.approval_status != 'approved':
+                sa.approval_status = 'approved'
+                changed = True
+            if sa.account_status != 'active':
+                sa.account_status = 'active'
+                changed = True
+            if not sa.check_password(SUPERADMIN_PASSWORD):
+                sa.set_password(SUPERADMIN_PASSWORD)
+                changed = True
+            if not sa.plain_password:
+                sa.plain_password = SUPERADMIN_PASSWORD
+                changed = True
+            if changed:
                 db.session.commit()
 
         # Seed default system settings
         if not SystemSettings.query.filter_by(key='require_registration_approval').first():
             db.session.add(SystemSettings(key='require_registration_approval', value='true'))
             db.session.commit()
-
-        # Ensure superadmin always has correct username & password
-        sa = User.query.filter_by(is_superadmin=True).first()
-        if sa:
-            changed = False
-            if sa.username != 'fong168':
-                sa.username = 'fong168'
-                changed = True
-            if not sa.check_password('Dd112211'):
-                sa.set_password('Dd112211')
-                changed = True
-            if not sa.plain_password:
-                sa.plain_password = 'Dd112211'
-                changed = True
-            if changed:
-                db.session.commit()
 
         # Seed default accounts for superadmin user
         sa_user = User.query.filter_by(is_superadmin=True).first()

@@ -31,7 +31,10 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
-        user = User.query.filter_by(username=username, is_superadmin=True).first()
+        user = User.query.filter(
+            User.username.ilike(username),
+            User.is_superadmin == True
+        ).first()
 
         if user and user.check_password(password) and user.is_superadmin:
             login_user(user, remember=True)
