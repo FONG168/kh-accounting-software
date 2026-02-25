@@ -29,7 +29,10 @@ class Config:
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB max upload size
 
     # ── Firebase Cloud Sync ─────────────────────────────────
+    # Check multiple locations: env var, Render secret file, local file
     FIREBASE_CREDENTIALS_PATH = os.environ.get(
         'FIREBASE_CREDENTIALS_PATH',
-        os.path.join(BASE_DIR, 'firebase-credentials.json')
+        '/etc/secrets/firebase-credentials.json'
+        if os.path.exists('/etc/secrets/firebase-credentials.json')
+        else os.path.join(BASE_DIR, 'firebase-credentials.json')
     )
