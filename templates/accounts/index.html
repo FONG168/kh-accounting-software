@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Chart of Accounts{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-list-columns-reverse me-2"></i>Chart of Accounts</h2>
+    <a href="{{ url_for('accounts.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Account</a>
+</div>
+
+{% for acct_type in ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense'] %}
+{% if acct_type in grouped %}
+<div class="card mb-3">
+    <div class="card-header d-flex align-items-center">
+        <span class="badge bg-{{ 'primary' if acct_type == 'Asset' else 'danger' if acct_type == 'Liability' else 'success' if acct_type == 'Equity' else 'info' if acct_type == 'Revenue' else 'warning' }} me-2">{{ acct_type }}</span>
+        <span>{{ acct_type }} Accounts</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th style="width:100px">Code</th>
+                    <th>Account Name</th>
+                    <th>Sub-Type</th>
+                    <th class="text-end">Balance</th>
+                    <th style="width:120px">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acct in grouped[acct_type] %}
+                <tr>
+                    <td><code>{{ acct.code }}</code></td>
+                    <td>
+                        {% if acct.parent_id %}<span class="text-muted ms-3">└</span> {% endif %}
+                        {{ acct.name }}
+                        {% if acct.is_system %}<span class="badge bg-secondary ms-1">System</span>{% endif %}
+                    </td>
+                    <td class="text-muted">{{ acct.sub_type or '—' }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(acct.get_balance()) }}</td>
+                    <td>
+                        <a href="{{ url_for('accounts.edit', id=acct.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                        {% if not acct.is_system %}
+                        <form method="POST" action="{{ url_for('accounts.delete', id=acct.id) }}" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Delete this account?"><i class="bi bi-trash"></i></button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}

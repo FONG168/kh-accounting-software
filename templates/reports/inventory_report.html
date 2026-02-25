@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Inventory Report{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-boxes me-2"></i>Inventory Report</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+        <button onclick="exportReportPDF('Inventory_Report')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4">
+        <div class="stat-card bg-info-gradient">
+            <div class="stat-label">Total Inventory Value</div>
+            <div class="stat-value">{{ currency_symbol }}{{ "{:,.2f}".format(total_value) }}</div>
+            <div class="stat-icon"><i class="bi bi-boxes"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="stat-card bg-warning-gradient">
+            <div class="stat-label">Low Stock Items</div>
+            <div class="stat-value">{{ low_stock|length }}</div>
+            <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="stat-card bg-danger-gradient">
+            <div class="stat-label">Out of Stock</div>
+            <div class="stat-value">{{ out_of_stock|length }}</div>
+            <div class="stat-icon"><i class="bi bi-x-circle"></i></div>
+        </div>
+    </div>
+</div>
+
+{% if low_stock %}
+<div class="card mb-3">
+    <div class="card-header"><i class="bi bi-exclamation-triangle text-warning me-1"></i>Low Stock Alert</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table mb-0">
+            <thead><tr><th>SKU</th><th>Product</th><th class="text-end">On Hand</th><th class="text-end">Reorder Level</th></tr></thead>
+            <tbody>
+                {% for p in low_stock %}
+                <tr class="table-warning">
+                    <td><code>{{ p.sku }}</code></td>
+                    <td>{{ p.name }}</td>
+                    <td class="text-end text-danger fw-bold">{{ p.quantity_on_hand }} {{ p.unit }}</td>
+                    <td class="text-end">{{ p.reorder_level }} {{ p.unit }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">Complete Inventory</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>SKU</th><th>Product</th><th>Category</th>
+                    <th class="text-end">Qty on Hand</th><th class="text-end">Cost Price</th>
+                    <th class="text-end">Selling Price</th><th class="text-end">Value</th><th class="text-end">Margin</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in products %}
+                <tr>
+                    <td><code>{{ p.sku }}</code></td>
+                    <td class="fw-medium">{{ p.name }}</td>
+                    <td>{{ p.category or '—' }}</td>
+                    <td class="text-end">{{ p.quantity_on_hand }} {{ p.unit }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(p.cost_price) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(p.selling_price) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(p.quantity_on_hand * p.cost_price) }}</td>
+                    <td class="text-end">
+                        {% if p.selling_price > 0 %}
+                        {{ "{:.1f}%".format((p.selling_price - p.cost_price) / p.selling_price * 100) }}
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold table-light">
+                    <td colspan="6" class="text-end">Total Inventory Value</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(total_value) }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

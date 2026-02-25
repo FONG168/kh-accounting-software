@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Statement of Changes in Equity{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-graph-up-arrow me-2"></i>Statement of Changes in Equity</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+        <button onclick="exportReportPDF('Equity_Statement')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">From</label>
+                <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start.isoformat() }}">
+            </div>
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">To</label>
+                <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end.isoformat() }}">
+            </div>
+            <div class="col-12 col-sm-auto"><button class="btn btn-sm btn-primary">Apply</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header text-center">
+        <h5 class="mb-0">{{ config.COMPANY_NAME }}</h5>
+        <small class="text-muted">Statement of Changes in Equity (IAS 1.106)</small><br>
+        <small class="text-muted">{{ start.strftime('%b %d, %Y') }} – {{ end.strftime('%b %d, %Y') }}</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table report-table mb-0">
+            <thead>
+                <tr>
+                    <th>Account</th>
+                    <th class="text-end">Opening Balance</th>
+                    <th class="text-end">Changes</th>
+                    <th class="text-end">Closing Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td>{{ row.account.code }} – {{ row.account.name }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(row.opening) }}</td>
+                    <td class="text-end amount {% if row.change < 0 %}text-danger{% endif %}">{{ currency_symbol }}{{ "{:,.2f}".format(row.change) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(row.closing) }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="table-info">
+                    <td><em>Net Income for the Period</em></td>
+                    <td></td>
+                    <td class="text-end amount"><em>{{ currency_symbol }}{{ "{:,.2f}".format(net_income) }}</em></td>
+                    <td></td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr class="grand-total">
+                    <td><strong>Total Equity</strong></td>
+                    <td class="text-end amount"><strong>{{ currency_symbol }}{{ "{:,.2f}".format(total_opening) }}</strong></td>
+                    <td class="text-end amount"><strong>{{ currency_symbol }}{{ "{:,.2f}".format(total_changes) }}</strong></td>
+                    <td class="text-end amount"><strong>{{ currency_symbol }}{{ "{:,.2f}".format(total_closing) }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{% if is_service_business %}Services{% else %}Products & Services{% endif %}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi {{ 'bi-tools' if is_service_business else 'bi-box-seam' }} me-2"></i>{% if is_service_business %}Services{% else %}Products & Services{% endif %}</h2>
+    <div class="d-flex gap-2">
+        {% if not is_service_business %}
+        <a href="{{ url_for('inventory.stock_movements') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-right me-1"></i>Stock Movements</a>
+        <a href="{{ url_for('inventory.stock_adjustment') }}" class="btn btn-outline-warning"><i class="bi bi-sliders me-1"></i>Adjustment</a>
+        {% endif %}
+        <a href="{{ url_for('inventory.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>{% if is_service_business %}New Service{% else %}New Product{% endif %}</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th>Name</th>
+                    <th class="d-table-cell-md">Category</th>
+                    {% if not is_service_business %}<th>Type</th>{% endif %}
+                    <th class="text-end d-table-cell-md">Cost Price</th>
+                    <th class="text-end">Selling Price</th>
+                    {% if not is_service_business %}
+                    <th class="text-end">Qty on Hand</th>
+                    <th class="text-end d-table-cell-md">Reorder Level</th>
+                    {% endif %}
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in products %}
+                <tr class="{{ 'table-warning' if not is_service_business and not p.is_service and p.quantity_on_hand <= p.reorder_level and p.reorder_level > 0 }}">
+                    <td><code>{{ p.sku }}</code></td>
+                    <td class="fw-medium">{{ p.name }}</td>
+                    <td class="d-table-cell-md">{{ p.category_ref.name if p.category_ref else '—' }}</td>
+                    {% if not is_service_business %}
+                    <td>
+                        {% if p.is_service %}
+                        <span class="badge bg-info">Service</span>
+                        {% else %}
+                        <span class="badge bg-primary">Product</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    <td class="text-end amount d-table-cell-md">{{ currency_symbol }}{{ "{:,.2f}".format(p.cost_price) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(p.selling_price) }}</td>
+                    {% if not is_service_business %}
+                    <td class="text-end {{ 'text-danger fw-bold' if not p.is_service and p.quantity_on_hand <= p.reorder_level and p.reorder_level > 0 }}">
+                        {% if p.is_service %}—{% else %}{{ p.quantity_on_hand }} {{ p.unit }}{% endif %}
+                    </td>
+                    <td class="text-end d-table-cell-md">{% if not p.is_service %}{{ p.reorder_level }} {{ p.unit }}{% else %}—{% endif %}</td>
+                    {% endif %}
+                    <td class="text-nowrap">
+                        {% if not is_service_business and not p.is_service %}
+                        <a href="{{ url_for('inventory.product_history', id=p.id) }}" class="btn btn-sm btn-outline-success" title="Stock History"><i class="bi bi-clock-history"></i></a>
+                        {% endif %}
+                        <a href="{{ url_for('inventory.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                        <form method="POST" action="{{ url_for('inventory.delete', id=p.id) }}" class="d-inline">
+                            <button class="btn btn-sm btn-outline-danger" data-confirm="Delete this {{ 'service' if is_service_business else 'product' }}?" title="Delete"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not products %}
+                <tr><td colspan="{{ 6 if is_service_business else 9 }}" class="text-center text-muted py-4">No {% if is_service_business %}services{% else %}products{% endif %} yet.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

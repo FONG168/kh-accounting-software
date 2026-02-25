@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Change Business Type — KH Accounting Software Enterprise{% endblock %}
+{% block extra_css %}
+<style>
+    .industry-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+    .industry-card {
+        border: 2px solid #e2e8f0; border-radius: .75rem;
+        padding: 1.3rem 1rem; text-align: center; cursor: pointer;
+        transition: all .2s;
+    }
+    .industry-card:hover { border-color: #3b82f6; background: #f0f7ff; transform: translateY(-2px); }
+    .industry-card.selected { border-color: #3b82f6; background: #eff6ff; box-shadow: 0 0 0 3px rgba(59,130,246,.25); }
+    .industry-card .card-icon { font-size: 2rem; color: #3b82f6; margin-bottom: .5rem; }
+    .industry-card .card-name { font-weight: 600; font-size: .95rem; }
+    .industry-card .card-desc { font-size: .78rem; color: #64748b; margin-top: .25rem; }
+    #industryInput { display: none; }
+    .preview-panel { border: 1px solid #e2e8f0; border-radius: .75rem; padding: 1.5rem; background: #fafbfc; }
+    .preview-panel .badge { font-size: .8rem; font-weight: 500; }
+    .category-tag { display: inline-block; padding: .25rem .6rem; margin: .2rem; border-radius: .5rem; font-size: .82rem; }
+    .category-tag.industry { background: #dbeafe; color: #1e40af; }
+    .category-tag.custom { background: #dcfce7; color: #166534; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-arrow-repeat me-2"></i>Change Business Type</h2>
+    <a href="{{ url_for('setup.settings') }}" class="btn btn-outline-secondary">Back to Settings</a>
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle me-1"></i>
+    Changing business type will <strong>replace</strong> industry-default categories with the new ones.
+    Your <strong>custom categories</strong> (ones you created yourself) will be kept.
+    Products using removed categories will have their category unassigned.
+</div>
+
+<form method="POST" id="changeForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="industry" id="industryInput" value="{{ settings.industry if settings else '' }}">
+    <div class="row g-3 mb-4" style="max-width:500px;">
+        <div class="col-md-8">
+            <label class="form-label fw-semibold">Company Name</label>
+            <input type="text" name="company_name" class="form-control" value="{{ settings.company_name if settings else '' }}" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label fw-semibold">Currency</label>
+            <input type="text" name="currency_symbol" class="form-control" maxlength="5" value="{{ settings.currency_symbol if settings else '$' }}">
+        </div>
+    </div>
+
+    <h5 class="fw-semibold mb-3">Select New Business Type</h5>
+    <div class="industry-grid mb-4">
+        {% for key, ind in industries.items() %}
+        <div class="industry-card {% if settings and settings.industry == key %}selected{% endif %}"
+             data-industry="{{ key }}" onclick="selectIndustry(this, '{{ key }}')">
+            <div class="card-icon"><i class="bi {{ ind.icon }}"></i></div>
+            <div class="card-name">{{ ind.name }}</div>
+            <div class="card-desc">{{ ind.desc }}</div>
+            {% if ind.business_type == 'service' %}
+            <span class="badge bg-success mt-1" style="font-size:0.65rem;"><i class="bi bi-tools me-1"></i>Service Business</span>
+            {% else %}
+            <span class="badge bg-primary mt-1" style="font-size:0.65rem;"><i class="bi bi-box-seam me-1"></i>Product Business</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Category Preview Panel -->
+    <div class="preview-panel mb-4" id="previewPanel" style="display:none;">
+        <h6 class="fw-bold mb-3">
+            <i class="bi bi-eye me-1"></i>Category Preview
+            <span class="text-muted fw-normal ms-2" id="previewIndustryName"></span>
+        </h6>
+        <div class="mb-2">
+            <span class="badge bg-primary me-1">New Industry Categories</span><br>
+            <span id="newCatsContainer"></span>
+        </div>
+        <div class="mb-2" id="customSection" style="display:none;">
+            <span class="badge bg-success me-1">Your Custom Categories (kept)</span><br>
+            <span id="customCatsContainer"></span>
+        </div>
+        <div class="mb-0 text-muted small mt-2">
+            <i class="bi bi-info-circle me-1"></i>
+            Old industry categories will be removed and replaced with the ones shown above.
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <button type="submit" class="btn btn-primary btn-lg" id="continueBtn" disabled>
+            <i class="bi bi-check-lg me-1"></i>Change Business Type
+        </button>
+        <a href="{{ url_for('setup.settings') }}" class="btn btn-outline-secondary btn-lg ms-2">Cancel</a>
+    </div>
+</form>
+{% endblock %}
+{% block extra_js %}
+<script>
+let currentIndustry = '{{ settings.industry if settings else "" }}';
+
+function selectIndustry(el, key) {
+    document.querySelectorAll('.industry-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('industryInput').value = key;
+    document.getElementById('continueBtn').disabled = false;
+
+    // Fetch category preview from API
+    fetch('/setup/api/industry-categories/' + key)
+        .then(r => r.json())
+        .then(data => {
+            const panel = document.getElementById('previewPanel');
+            panel.style.display = 'block';
+
+            document.getElementById('previewIndustryName').textContent = '— ' + data.industry_name;
+
+            // New industry categories
+            const newContainer = document.getElementById('newCatsContainer');
+            newContainer.innerHTML = data.categories.map(c =>
+                '<span class="category-tag industry">' + c + '</span>'
+            ).join('');
+
+            // Custom categories
+            const customSection = document.getElementById('customSection');
+            const customContainer = document.getElementById('customCatsContainer');
+            if (data.custom_categories.length > 0) {
+                customSection.style.display = 'block';
+                customContainer.innerHTML = data.custom_categories.map(c =>
+                    '<span class="category-tag custom">' + c + '</span>'
+                ).join('');
+            } else {
+                customSection.style.display = 'none';
+            }
+
+            // Update button text
+            const btn = document.getElementById('continueBtn');
+            if (key === currentIndustry) {
+                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Keep Current Business Type';
+            } else {
+                btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Switch to ' + data.industry_name;
+            }
+        });
+}
+
+// Show preview on load if industry already selected
+{% if settings and settings.industry %}
+document.addEventListener('DOMContentLoaded', function() {
+    const selected = document.querySelector('.industry-card.selected');
+    if (selected) selectIndustry(selected, '{{ settings.industry }}');
+});
+{% endif %}
+</script>
+{% endblock %}

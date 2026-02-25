@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+{% block title %}New Invoice{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-receipt me-2"></i>New Invoice</h2>
+</div>
+
+<form method="POST" onsubmit="checkStockAndSubmit(event)">
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Customer *</label>
+                    <select name="customer_id" class="form-select" required>
+                        <option value="">Select Customer</option>
+                        {% for c in customers %}
+                        <option value="{{ c.id }}">{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Date *</label>
+                    <input type="date" name="date" class="form-control" value="{{ today.isoformat() }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Due Date</label>
+                    <input type="date" name="due_date" class="form-control" value="{{ due_default }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Tax Rate %</label>
+                    <input type="number" name="tax_rate" id="tax_rate" class="form-control" step="0.01" min="0" value="0" onchange="updateInvoiceTotal()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Line Items</span>
+            <div class="d-flex gap-2 align-items-center">
+                {% if not is_service_business %}
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-secondary active" id="filterAll" onclick="filterProductList('all')">All</button>
+                    <button type="button" class="btn btn-outline-primary" id="filterProduct" onclick="filterProductList('product')"><i class="bi bi-box-seam me-1"></i>Products</button>
+                    <button type="button" class="btn btn-outline-success" id="filterService" onclick="filterProductList('service')"><i class="bi bi-tools me-1"></i>Services</button>
+                </div>
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addInvoiceLine()"><i class="bi bi-plus-lg me-1"></i>Add Line</button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:25%">{% if is_service_business %}Service{% else %}Product / Service{% endif %}</th>
+                        <th>Description</th>
+                        {% if not is_service_business %}<th style="width:60px">Type</th>{% endif %}
+                        <th style="width:100px">Qty</th>
+                        <th style="width:120px">Unit Price</th>
+                        <th style="width:120px">Amount</th>
+                        <th style="width:50px"></th>
+                    </tr>
+                </thead>
+                <tbody id="invoiceLines">
+                    <tr>
+                        <td>
+                            <select name="items-0-product_id" class="form-select product-select" onchange="onProductSelect(this, 0)">
+                                <option value="">Select {% if is_service_business %}Service{% else %}Product{% endif %}</option>
+                                {% for p in products %}
+                                <option value="{{ p.id }}" data-item-type="{{ p.item_type or ('service' if p.is_service else 'product') }}">{{ p.sku }} - {{ p.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td><input type="text" name="items-0-description" class="form-control" required></td>
+                        {% if not is_service_business %}<td><span class="badge bg-secondary item-type-badge" id="item-type-0">—</span></td>{% endif %}
+                        <td>
+                            <input type="number" name="items-0-quantity" class="form-control qty-input" step="0.01" min="0" value="1" onchange="updateLineAmount(0)">
+                            {% if not is_service_business %}<div class="stock-warning text-danger small" id="stock-warn-0"></div>{% endif %}
+                        </td>
+                        <td><input type="number" name="items-0-unit_price" class="form-control price-input" step="0.01" min="0" value="0" onchange="updateLineAmount(0)"></td>
+                        <td><input type="number" name="items-0-amount" class="form-control amount-input" step="0.01" readonly></td>
+                        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeInvoiceLine(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3" style="max-width: 400px; margin-left: auto;">
+        <div class="card-body">
+            <div class="d-flex justify-content-between mb-2">
+                <span>Subtotal:</span>
+                <span class="fw-bold">$<span id="subtotal">0.00</span></span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span>Tax:</span>
+                <span>$<span id="taxAmount">0.00</span></span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <label class="form-label mb-0">Discount:</label>
+                <div style="width: 120px;">
+                    <input type="number" name="discount_amount" id="discount_amount" class="form-control form-control-sm" step="0.01" min="0" value="0" onchange="updateInvoiceTotal()">
+                </div>
+            </div>
+            <hr>
+            <div class="d-flex justify-content-between">
+                <span class="fw-bold fs-5">Total:</span>
+                <span class="fw-bold fs-5">$<span id="grandTotal">0.00</span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── PAYMENT CHOICE ─────────────────────────────── -->
+    <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-credit-card me-1"></i>Payment Option</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card h-100 border-2 payment-card active" id="card-owe" onclick="selectSalePayment('owe')" style="cursor:pointer;">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-clock-history text-warning" style="font-size:2rem;"></i>
+                            <h5 class="mt-2 mb-1">Invoice (Pay Later)</h5>
+                            <small class="text-muted">Customer pays later — record as owed</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 border-2 payment-card" id="card-pay_now" onclick="selectSalePayment('pay_now')" style="cursor:pointer;">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-cash-coin text-success" style="font-size:2rem;"></i>
+                            <h5 class="mt-2 mb-1">Cash Sale (Pay Now)</h5>
+                            <small class="text-muted">Customer pays immediately — mark as paid</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <input type="hidden" name="payment_choice" id="paymentChoice" value="owe">
+
+            <!-- Pay Now fields (hidden by default) -->
+            <div id="payNowFields" class="mt-3" style="display:none;">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Deposit To Account *</label>
+                        <select name="deposit_to_account_id" class="form-select">
+                            {% for acct in bank_accounts %}
+                            <option value="{{ acct.id }}">{{ acct.code }} - {{ acct.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Payment Method</label>
+                        <select name="payment_method" class="form-select">
+                            <option value="cash">Cash</option>
+                            <option value="bank">Bank Transfer</option>
+                            <option value="card">Card</option>
+                            <option value="check">Check</option>
+                            <option value="e-wallet">E-Wallet</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="2"></textarea>
+    </div>
+
+    <!-- Stock Warning Modal -->
+    <div class="modal fade" id="stockWarningModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header bg-warning text-dark">
+            <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Insufficient Stock Warning</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p>The following products have <strong>insufficient stock</strong>:</p>
+            <div id="stockWarningList"></div>
+            <div class="alert alert-warning mt-3 mb-0">
+              <i class="bi bi-info-circle me-1"></i>
+              If you proceed, inventory will go <strong>negative</strong>. You can adjust stock later via <strong>Inventory &rarr; Stock Adjustment</strong>.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-warning" id="confirmStockBtn"><i class="bi bi-check-lg me-1"></i>Confirm &amp; Proceed</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <input type="hidden" name="force_confirm" id="forceConfirm" value="0">
+
+    <input type="hidden" name="item_count" id="itemCount" value="1">
+
+    <div class="d-flex gap-2">
+        <button type="submit" id="submitBtn" class="btn btn-primary btn-lg"><i class="bi bi-send me-1" id="submitIcon"></i><span id="submitLabel">Save & Record Sale (Owed)</span></button>
+        <a href="{{ url_for('sales.index') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+    </div>
+</form>
+
+{% block extra_js %}
+<script>
+    var isServiceBusiness = {{ 'true' if is_service_business else 'false' }};
+    window.productOptions = `{% for p in products %}<option value="{{ p.id }}" data-item-type="{{ p.item_type or ('service' if p.is_service else 'product') }}">{{ p.sku }} - {{ p.name }}</option>{% endfor %}`;
+    window.productData = {
+        {% for p in products %}
+        '{{ p.id }}': { name: '{{ p.name }}', price: {{ p.selling_price }}, cost: {{ p.cost_price }}, stock: {{ p.quantity_on_hand|float }}, isService: {{ 'true' if p.is_service else 'false' }}, unit: '{{ p.unit }}', itemType: '{{ p.item_type or ("service" if p.is_service else "product") }}', subCategory: '{{ p.sub_category or "" }}', taxType: '{{ p.tax_type or "taxable" }}' },
+        {% endfor %}
+    };
+
+    var currentFilter = 'all';
+
+    function filterProductList(type) {
+        currentFilter = type;
+        // Update filter button styles
+        document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('filter' + type.charAt(0).toUpperCase() + type.slice(1)).classList.add('active');
+
+        // Filter options in all product selects
+        document.querySelectorAll('.product-select').forEach(function(sel) {
+            var opts = sel.querySelectorAll('option[data-item-type]');
+            opts.forEach(function(opt) {
+                var it = opt.getAttribute('data-item-type');
+                opt.style.display = (type === 'all' || it === type) ? '' : 'none';
+            });
+        });
+    }
+
+    function onProductSelect(sel, idx) {
+        var pid = sel.value;
+        var pd = window.productData[pid];
+        if (pd) {
+            document.querySelector('[name="items-'+idx+'-description"]').value = pd.name;
+            document.querySelector('[name="items-'+idx+'-unit_price"]').value = pd.price;
+            // Update type badge (only for product businesses)
+            if (!isServiceBusiness) {
+                var badge = document.getElementById('item-type-' + idx);
+                if (badge) {
+                    if (pd.isService) {
+                        badge.textContent = 'SVC';
+                        badge.className = 'badge bg-success item-type-badge';
+                    } else {
+                        badge.textContent = 'PRD';
+                        badge.className = 'badge bg-primary item-type-badge';
+                    }
+                }
+            }
+            updateLineAmount(idx);
+            if (!isServiceBusiness) checkLineStock(idx);
+        } else {
+            if (!isServiceBusiness) {
+                var badge = document.getElementById('item-type-' + idx);
+                if (badge) { badge.textContent = '—'; badge.className = 'badge bg-secondary item-type-badge'; }
+            }
+        }
+    }
+
+    function selectSalePayment(choice) {
+        document.getElementById('paymentChoice').value = choice;
+        document.querySelectorAll('.payment-card').forEach(c => {
+            c.classList.remove('active', 'border-primary', 'border-success');
+        });
+        if (choice === 'pay_now') {
+            document.getElementById('card-pay_now').classList.add('active', 'border-success');
+            document.getElementById('payNowFields').style.display = '';
+            document.getElementById('submitLabel').textContent = 'Save & Record Sale (Paid)';
+            document.getElementById('submitBtn').classList.replace('btn-primary', 'btn-success');
+            document.getElementById('submitIcon').className = 'bi bi-cash-coin me-1';
+        } else {
+            document.getElementById('card-owe').classList.add('active', 'border-primary');
+            document.getElementById('payNowFields').style.display = 'none';
+            document.getElementById('submitLabel').textContent = 'Save & Record Sale (Owed)';
+            document.getElementById('submitBtn').classList.replace('btn-success', 'btn-primary');
+            document.getElementById('submitIcon').className = 'bi bi-send me-1';
+        }
+    }
+    // Initialize
+    selectSalePayment('owe');
+
+    // ─── Stock Check Functions ─────────────────────────────
+    function checkLineStock(idx) {
+        if (isServiceBusiness) return;
+        const sel = document.querySelector(`[name="items-${idx}-product_id"]`);
+        const qtyInput = document.querySelector(`[name="items-${idx}-quantity"]`);
+        const warnEl = document.getElementById(`stock-warn-${idx}`);
+        if (!sel || !qtyInput || !warnEl) return;
+        if (!sel.value) { warnEl.innerHTML = ''; qtyInput.classList.remove('border-danger'); return; }
+        const pd = window.productData[sel.value];
+        if (!pd || pd.isService) { warnEl.innerHTML = ''; qtyInput.classList.remove('border-danger'); return; }
+        const qty = parseFloat(qtyInput.value) || 0;
+        if (qty > pd.stock) {
+            warnEl.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Only ${pd.stock} ${pd.unit} in stock`;
+            qtyInput.classList.add('border-danger');
+        } else {
+            warnEl.innerHTML = pd.stock > 0 ? `<small class="text-muted">${pd.stock} ${pd.unit} available</small>` : '';
+            qtyInput.classList.remove('border-danger');
+        }
+    }
+
+    function checkStockAndSubmit(e) {
+        e.preventDefault();
+        // Service businesses skip stock validation entirely
+        if (isServiceBusiness) {
+            document.getElementById('forceConfirm').value = '1';
+            e.target.submit();
+            return;
+        }
+        const warnings = [];
+        const rows = document.querySelectorAll('#invoiceLines tr');
+        rows.forEach((row, i) => {
+            const sel = row.querySelector('.product-select');
+            const qtyInput = row.querySelector('.qty-input');
+            if (!sel || !qtyInput || !sel.value) return;
+            const pid = sel.value;
+            const pd = window.productData[pid];
+            if (!pd || pd.isService) return;
+            const qty = parseFloat(qtyInput.value) || 0;
+            if (qty > pd.stock) {
+                warnings.push({name: pd.name, requested: qty, available: pd.stock, unit: pd.unit});
+            }
+        });
+        if (warnings.length > 0) {
+            let html = '<table class="table table-sm"><thead><tr><th>Product</th><th class="text-end">Requested</th><th class="text-end">Available</th><th class="text-end">Short</th></tr></thead><tbody>';
+            warnings.forEach(w => {
+                html += `<tr><td class="fw-medium">${w.name}</td><td class="text-end">${w.requested} ${w.unit}</td><td class="text-end text-danger fw-bold">${w.available} ${w.unit}</td><td class="text-end text-danger">${(w.requested - w.available).toFixed(2)} ${w.unit}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('stockWarningList').innerHTML = html;
+            new bootstrap.Modal(document.getElementById('stockWarningModal')).show();
+        } else {
+            document.getElementById('forceConfirm').value = '1';
+            e.target.submit();
+        }
+    }
+
+    document.getElementById('confirmStockBtn').addEventListener('click', function() {
+        document.getElementById('forceConfirm').value = '1';
+        document.querySelector('form').submit();
+    });
+</script>
+{% endblock %}
+{% endblock %}

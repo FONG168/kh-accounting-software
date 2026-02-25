@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Budget vs Actual{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-bar-chart-line me-2"></i>Budget vs Actual</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+        <button onclick="exportReportPDF('Budget_vs_Actual')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">Year</label>
+                <select name="year" class="form-select form-select-sm">
+                    {% for y in years %}
+                    <option value="{{ y }}" {{ 'selected' if y == year }}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-sm-auto"><button class="btn btn-sm btn-primary">Apply</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header text-center">
+        <h5 class="mb-0">{{ config.COMPANY_NAME }}</h5>
+        <small class="text-muted">Budget vs Actual Report – {{ year }}</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table report-table mb-0">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Account</th>
+                    <th>Type</th>
+                    <th class="text-end">Budget</th>
+                    <th class="text-end">Actual</th>
+                    <th class="text-end">Variance</th>
+                    <th class="text-end">Var %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in data %}
+                <tr>
+                    <td><code>{{ item.account.code }}</code></td>
+                    <td>{{ item.account.name }}</td>
+                    <td class="text-muted">{{ item.account.account_type }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(item.budget) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(item.actual) }}</td>
+                    <td class="text-end amount {% if item.variance < 0 %}text-danger{% else %}text-success{% endif %}">
+                        {{ currency_symbol }}{{ "{:,.2f}".format(item.variance) }}
+                    </td>
+                    <td class="text-end {% if item.variance_pct < 0 %}text-danger{% else %}text-success{% endif %}">
+                        {{ "{:,.1f}".format(item.variance_pct) }}%
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% if not data %}
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-bar-chart-line" style="font-size: 2rem;"></i>
+            <p class="mt-2">No budget data found for {{ year }}. <a href="{{ url_for('budgets.create', year=year) }}">Create budgets</a> first.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

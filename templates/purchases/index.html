@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Bills / Purchases{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-bag me-2"></i>Bills / Purchases</h2>
+    <a href="{{ url_for('purchases.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Bill</a>
+</div>
+
+<!-- Due date notifications banner -->
+{% set overdue_bills = bills | selectattr('status', 'in', ['owed', 'overdue', 'partial']) | selectattr('is_overdue') | list %}
+{% set urgent_bills = bills | selectattr('status', 'in', ['owed', 'partial']) | rejectattr('is_overdue') | list %}
+{% set urgent_soon = [] %}
+{% for b in urgent_bills %}
+    {% if b.days_until_due is not none and b.days_until_due <= 7 and b.days_until_due >= 0 %}
+        {% if urgent_soon.append(b) %}{% endif %}
+    {% endif %}
+{% endfor %}
+
+{% if overdue_bills %}
+<div class="bill-notification overdue mb-3">
+    <div>
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <strong>{{ overdue_bills|length }} bill{{ 's' if overdue_bills|length > 1 }} OVERDUE!</strong>
+        Total owed: {{ currency_symbol }}{{ "{:,.2f}".format(overdue_bills | sum(attribute='balance_due')) }}
+    </div>
+    <a href="#" class="btn btn-sm btn-danger">Pay Now</a>
+</div>
+{% endif %}
+{% if urgent_soon %}
+<div class="bill-notification urgent mb-3">
+    <div>
+        <i class="bi bi-clock-fill me-2"></i>
+        <strong>{{ urgent_soon|length }} bill{{ 's' if urgent_soon|length > 1 }} due within 7 days</strong>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Bill #</th>
+                    <th class="d-table-cell-md">Date</th>
+                    <th>Vendor</th>
+                    <th class="d-table-cell-md">Due Date</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-end">Balance Due</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bill in bills %}
+                <tr>
+                    <td><a href="{{ url_for('purchases.view', id=bill.id) }}" class="fw-medium text-decoration-none">{{ bill.bill_number }}</a></td>
+                    <td class="d-table-cell-md">{{ bill.date.strftime('%b %d, %Y') }}</td>
+                    <td>{{ bill.vendor.name }}</td>
+                    <td class="d-table-cell-md">
+                        {% if bill.due_date %}
+                            {{ bill.due_date.strftime('%b %d, %Y') }}
+                            {% if bill.status not in ['paid', 'draft'] %}
+                                {% set days = bill.days_until_due %}
+                                {% if days is not none %}
+                                    {% if days < 0 %}
+                                        <span class="due-countdown overdue"><i class="bi bi-exclamation-circle"></i>{{ (-days) }}d overdue</span>
+                                    {% elif days == 0 %}
+                                        <span class="due-countdown urgent"><i class="bi bi-alarm"></i>Due today!</span>
+                                    {% elif days <= 3 %}
+                                        <span class="due-countdown urgent"><i class="bi bi-alarm"></i>{{ days }}d left</span>
+                                    {% elif days <= 7 %}
+                                        <span class="due-countdown normal"><i class="bi bi-clock"></i>{{ days }}d left</span>
+                                    {% else %}
+                                        <span class="due-countdown safe"><i class="bi bi-clock"></i>{{ days }}d left</span>
+                                    {% endif %}
+                                {% endif %}
+                            {% endif %}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(bill.total) }}</td>
+                    <td class="text-end amount {% if bill.balance_due > 0 %}text-danger fw-bold{% endif %}">{{ currency_symbol }}{{ "{:,.2f}".format(bill.balance_due) }}</td>
+                    <td>
+                        {% if bill.status == 'paid' %}
+                            <span class="badge-status badge-paid"><i class="bi bi-check-circle me-1"></i>PAID</span>
+                        {% elif bill.status == 'owed' %}
+                            <span class="badge-status badge-owed"><i class="bi bi-clock-history me-1"></i>OWED</span>
+                        {% elif bill.status == 'overdue' %}
+                            <span class="badge-status badge-overdue"><i class="bi bi-exclamation-triangle me-1"></i>OVERDUE</span>
+                        {% elif bill.status == 'partial' %}
+                            <span class="badge-status badge-partial"><i class="bi bi-pie-chart me-1"></i>PARTIAL</span>
+                        {% else %}
+                            <span class="badge-status badge-{{ bill.status }}">{{ bill.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('purchases.view', id=bill.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                        {% if bill.status in ['owed', 'partial', 'overdue'] %}
+                        <a href="{{ url_for('purchases.create_payment') }}?bill_id={{ bill.id }}" class="btn btn-sm btn-outline-success" title="Pay this bill"><i class="bi bi-wallet2"></i></a>
+                        {% endif %}
+                        {% if bill.status == 'draft' %}
+                        <form method="POST" action="{{ url_for('purchases.delete', id=bill.id) }}" class="d-inline">
+                            <button class="btn btn-sm btn-outline-danger" data-confirm="Delete this bill?"><i class="bi bi-trash"></i></button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not bills %}
+                <tr><td colspan="8" class="text-center text-muted py-4">No bills yet.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if dn else 'New' }} Debit Note{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-receipt me-2"></i>{{ 'Edit' if dn else 'New' }} Debit Note</h2>
+    <a href="{{ url_for('debit_notes.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+
+<form method="POST" id="dnForm">
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Vendor <span class="text-danger">*</span></label>
+                    <select name="vendor_id" class="form-select" required>
+                        <option value="">-- Select Vendor --</option>
+                        {% for v in vendors %}
+                        <option value="{{ v.id }}">{{ v.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Date <span class="text-danger">*</span></label>
+                    <input type="date" name="date" class="form-control" value="{{ today.isoformat() }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Linked Bill</label>
+                    <select name="bill_id" class="form-select">
+                        <option value="">-- None --</option>
+                        {% for b in bills %}
+                        <option value="{{ b.id }}">{{ b.bill_number }} – {{ b.vendor.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Tax Rate %</label>
+                    <input type="number" name="tax_rate" class="form-control" step="0.01" value="0" min="0">
+                </div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-12">
+                    <label class="form-label">Reason</label>
+                    <textarea name="reason" class="form-control" rows="2" placeholder="Reason for debit note"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">Line Items</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addDNLine()"><i class="bi bi-plus-circle me-1"></i>Add Line</button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+            <table class="table mb-0" id="dnLines">
+                <thead>
+                    <tr>
+                        <th style="width:25%">Product</th>
+                        <th>Description</th>
+                        <th style="width:10%">Qty</th>
+                        <th style="width:12%">Unit Price</th>
+                        <th style="width:12%" class="text-end">Amount</th>
+                        <th style="width:5%"></th>
+                    </tr>
+                </thead>
+                <tbody id="dnLineBody">
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <input type="hidden" name="item_count" id="itemCount" value="0">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle me-1"></i>Create Debit Note</button>
+</form>
+
+<script>
+let dnLineIdx = 0;
+const products = {{ products | tojson | safe if products else '[]' }};
+
+function addDNLine() {
+    const tbody = document.getElementById('dnLineBody');
+    const idx = dnLineIdx++;
+    let productOpts = '<option value="">-- None --</option>';
+    products.forEach(p => {
+        productOpts += `<option value="${p.id}" data-price="${p.cost_price}">${p.name}</option>`;
+    });
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td><select name="items-${idx}-product_id" class="form-select form-select-sm" onchange="dnProductPick(this, ${idx})">${productOpts}</select></td>
+        <td><input name="items-${idx}-description" class="form-control form-control-sm" required></td>
+        <td><input name="items-${idx}-quantity" type="number" class="form-control form-control-sm" value="1" min="0.01" step="any" onchange="calcDNLine(${idx})"></td>
+        <td><input name="items-${idx}-unit_price" type="number" class="form-control form-control-sm" value="0" min="0" step="any" onchange="calcDNLine(${idx})"></td>
+        <td class="text-end amount" id="dn-line-amt-${idx}">0.00</td>
+        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); updateDNCount()"><i class="bi bi-x"></i></button></td>
+    `;
+    tbody.appendChild(row);
+    updateDNCount();
+}
+
+function dnProductPick(sel, idx) {
+    const opt = sel.options[sel.selectedIndex];
+    const price = opt.dataset.price || 0;
+    const form = document.getElementById('dnForm');
+    form.querySelector(`[name="items-${idx}-description"]`).value = opt.text !== '-- None --' ? opt.text : '';
+    form.querySelector(`[name="items-${idx}-unit_price"]`).value = price;
+    calcDNLine(idx);
+}
+
+function calcDNLine(idx) {
+    const form = document.getElementById('dnForm');
+    const qty = parseFloat(form.querySelector(`[name="items-${idx}-quantity"]`).value) || 0;
+    const price = parseFloat(form.querySelector(`[name="items-${idx}-unit_price"]`).value) || 0;
+    document.getElementById(`dn-line-amt-${idx}`).textContent = (qty * price).toFixed(2);
+}
+
+function updateDNCount() {
+    document.getElementById('itemCount').value = dnLineIdx;
+}
+
+addDNLine();
+</script>
+{% endblock %}

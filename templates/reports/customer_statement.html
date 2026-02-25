@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Customer Statement{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-person-lines-fill me-2"></i>Customer Statement</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+        <button onclick="exportReportPDF('Customer_Statement')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-12 col-sm-3">
+                <label class="form-label mb-0">Customer</label>
+                <select name="customer_id" class="form-select form-select-sm" required>
+                    <option value="">-- Select Customer --</option>
+                    {% for c in customers %}
+                    <option value="{{ c.id }}" {{ 'selected' if c.id == customer_id }}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">From</label>
+                <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start.isoformat() }}">
+            </div>
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">To</label>
+                <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end.isoformat() }}">
+            </div>
+            <div class="col-12 col-sm-auto"><button class="btn btn-sm btn-primary">View</button></div>
+        </form>
+    </div>
+</div>
+
+{% if selected_customer %}
+<div class="card">
+    <div class="card-header text-center">
+        <h5 class="mb-0">{{ config.COMPANY_NAME }}</h5>
+        <small class="text-muted">Customer Statement – {{ selected_customer.name }}</small><br>
+        <small class="text-muted">{{ start.strftime('%b %d, %Y') }} – {{ end.strftime('%b %d, %Y') }}</small>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <strong>{{ selected_customer.name }}</strong><br>
+                {% if selected_customer.email %}<small class="text-muted">{{ selected_customer.email }}</small><br>{% endif %}
+                {% if selected_customer.phone %}<small class="text-muted">{{ selected_customer.phone }}</small><br>{% endif %}
+            </div>
+            <div class="col-md-6 text-end">
+                <strong>Balance Due: <span class="{% if closing_balance > 0 %}text-danger{% else %}text-success{% endif %}">{{ currency_symbol }}{{ "{:,.2f}".format(closing_balance) }}</span></strong>
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table report-table mb-0">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Reference</th>
+                    <th>Description</th>
+                    <th class="text-end">Charges</th>
+                    <th class="text-end">Payments</th>
+                    <th class="text-end">Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="table-light">
+                    <td colspan="6"><strong>Opening Balance</strong></td>
+                    <td class="text-end amount"><strong>{{ currency_symbol }}{{ "{:,.2f}".format(opening_balance) }}</strong></td>
+                </tr>
+                {% for t in transactions %}
+                <tr>
+                    <td>{{ t.date.strftime('%b %d, %Y') }}</td>
+                    <td><span class="badge bg-{{ 'primary' if t.type == 'Invoice' else 'success' }}">{{ t.type }}</span></td>
+                    <td>{{ t.reference }}</td>
+                    <td>{{ t.description }}</td>
+                    <td class="text-end amount">{{ currency_symbol ~ "{:,.2f}".format(t.debit) if t.debit else '' }}</td>
+                    <td class="text-end amount">{{ currency_symbol ~ "{:,.2f}".format(t.credit) if t.credit else '' }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(t.balance) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="grand-total">
+                    <td colspan="6"><strong>Closing Balance</strong></td>
+                    <td class="text-end amount"><strong>{{ currency_symbol }}{{ "{:,.2f}".format(closing_balance) }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+        </div>
+    </div>
+</div>
+{% elif not customer_id %}
+<div class="card">
+    <div class="card-body text-center text-muted py-5">
+        <i class="bi bi-person-lines-fill" style="font-size: 3rem;"></i>
+        <p class="mt-2">Select a customer to view their statement.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

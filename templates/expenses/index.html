@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Petty Cash{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-cash-coin me-2"></i>Petty Cash Expenses</h2>
+    <a href="{{ url_for('expenses.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Petty Cash Expense</a>
+</div>
+
+<!-- ── Balance Summary ── -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="card text-center border-0 shadow-sm">
+            <div class="card-body py-3">
+                <small class="text-muted d-block">Petty Cash Balance</small>
+                <h3 class="mb-0 {% if pc_balance < 0 %}text-danger{% else %}text-success{% endif %}">
+                    {{ currency_symbol }}{{ "{:,.2f}".format(pc_balance) }}
+                </h3>
+                {% if petty_cash_account %}
+                <small class="text-muted">{{ petty_cash_account.code }} - {{ petty_cash_account.name }}</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card text-center border-0 shadow-sm">
+            <div class="card-body py-3">
+                <small class="text-muted d-block">Total Expenses</small>
+                <h3 class="mb-0 text-dark">{{ currency_symbol }}{{ "{:,.2f}".format(expenses | sum(attribute='amount')) }}</h3>
+                <small class="text-muted">{{ expenses | length }} transaction{{ 's' if expenses | length != 1 }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card text-center border-0 shadow-sm">
+            <div class="card-body py-3">
+                <small class="text-muted d-block">Payment Method</small>
+                <h3 class="mb-0 text-dark"><i class="bi bi-cash-stack text-success"></i></h3>
+                <small class="text-muted">Cash Only</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Expense Table ── -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>PC #</th>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th class="d-table-cell-md">Description</th>
+                    <th class="d-table-cell-md">Reference</th>
+                    <th class="text-end">Amount</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in expenses %}
+                <tr>
+                    <td class="fw-medium">{{ e.expense_number }}</td>
+                    <td>{{ e.date.strftime('%b %d, %Y') }}</td>
+                    <td><span class="badge bg-secondary bg-opacity-10 text-dark">{{ e.category or '—' }}</span></td>
+                    <td class="d-table-cell-md">{{ (e.description[:40] + '...') if e.description and e.description|length > 40 else (e.description or '—') }}</td>
+                    <td class="d-table-cell-md">{{ e.reference or '—' }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(e.amount) }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('expenses.delete', id=e.id) }}" class="d-inline">
+                            <button class="btn btn-sm btn-outline-danger" data-confirm="Delete this petty cash expense?"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not expenses %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No petty cash expenses yet. Click <strong>New Petty Cash Expense</strong> to record one.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

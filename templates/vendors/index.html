@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Vendors{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-truck me-2"></i>Vendors / Suppliers</h2>
+    <a href="{{ url_for('vendors.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Vendor</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th class="d-table-cell-md">Email</th>
+                    <th>Phone</th>
+                    <th class="d-table-cell-md">City</th>
+                    <th class="text-end">Balance</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in vendors %}
+                <tr>
+                    <td class="fw-medium">{{ v.name }}</td>
+                    <td class="d-table-cell-md">{{ v.email or '—' }}</td>
+                    <td>{{ v.phone or '—' }}</td>
+                    <td class="d-table-cell-md">{{ v.city or '—' }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(v.balance) }}</td>
+                    <td>
+                        <a href="{{ url_for('vendors.edit', id=v.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                        <form method="POST" action="{{ url_for('vendors.delete', id=v.id) }}" class="d-inline">
+                            <button class="btn btn-sm btn-outline-danger" data-confirm="Delete this vendor?"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not vendors %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No vendors yet.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

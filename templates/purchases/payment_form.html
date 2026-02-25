@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Make Payment{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-wallet2 me-2"></i>Pay Bill</h2>
+</div>
+
+{% if prefill_bill %}
+<div class="alert alert-info d-flex align-items-center justify-content-between">
+    <div>
+        <i class="bi bi-info-circle me-2"></i>
+        Paying <strong>{{ prefill_bill.bill_number }}</strong> from <strong>{{ prefill_bill.vendor.name }}</strong>
+        — Balance due: <strong class="text-danger">{{ currency_symbol }}{{ "{:,.2f}".format(prefill_bill.balance_due) }}</strong>
+        {% if prefill_bill.due_date %}
+            {% set days = prefill_bill.days_until_due %}
+            {% if days is not none and days < 0 %}
+                <span class="badge bg-danger ms-2">{{ (-days) }} days overdue!</span>
+            {% elif days is not none and days <= 7 %}
+                <span class="badge bg-warning text-dark ms-2">{{ days }} days left</span>
+            {% endif %}
+        {% endif %}
+    </div>
+    {% if prefill_bill.status in ['owed', 'overdue'] %}
+    <span class="stamp stamp-owed" style="font-size:.9rem;padding:4px 12px;transform:rotate(-6deg);">OWED</span>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="card" style="max-width: 700px;">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Vendor *</label>
+                    <select name="vendor_id" class="form-select" required>
+                        <option value="">Select Vendor</option>
+                        {% for v in vendors %}
+                        <option value="{{ v.id }}" {{ 'selected' if prefill_bill and prefill_bill.vendor_id == v.id }}>{{ v.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Bill</label>
+                    <select name="bill_id" class="form-select">
+                        <option value="">No specific bill</option>
+                        {% for b in bills %}
+                        <option value="{{ b.id }}" {{ 'selected' if prefill_bill and prefill_bill.id == b.id }}>
+                            {{ b.bill_number }} - {{ b.vendor.name }} ({{ currency_symbol }}{{ "{:,.2f}".format(b.balance_due) }} due)
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Date *</label>
+                    <input type="date" name="date" class="form-control" value="{{ today.isoformat() }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Amount *</label>
+                    <input type="number" name="amount" class="form-control" step="0.01" min="0.01"
+                           value="{{ '{:.2f}'.format(prefill_bill.balance_due) if prefill_bill else '' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Payment Method</label>
+                    <select name="payment_method" class="form-select">
+                        <option value="cash">Cash</option>
+                        <option value="bank">Bank Transfer</option>
+                        <option value="check">Check</option>
+                        <option value="card">Card</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Pay From Account *</label>
+                    <select name="paid_from_account_id" class="form-select" required>
+                        {% for acct in bank_accounts %}
+                        <option value="{{ acct.id }}">{{ acct.code }} - {{ acct.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Reference</label>
+                    <input type="text" name="reference" class="form-control" placeholder="Check #, Transaction ID">
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success btn-lg"><i class="bi bi-check-lg me-1"></i>Record Payment</button>
+                {% if prefill_bill %}
+                <a href="{{ url_for('purchases.view', id=prefill_bill.id) }}" class="btn btn-outline-secondary btn-lg ms-2">Cancel</a>
+                {% else %}
+                <a href="{{ url_for('purchases.payments') }}" class="btn btn-outline-secondary btn-lg ms-2">Cancel</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

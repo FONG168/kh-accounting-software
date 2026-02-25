@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Admin Login — KH Accounting Software</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+            position: relative;
+        }
+        body::before {
+            content:'';position:absolute;inset:0;
+            background:radial-gradient(circle at 20% 80%, rgba(99,102,241,.12) 0%, transparent 50%),
+                       radial-gradient(circle at 80% 20%, rgba(139,92,246,.1) 0%, transparent 50%);
+        }
+        .login-container { position:relative; z-index:1; width:100%; max-width:420px; padding:1.5rem; }
+        .login-brand { text-align:center; margin-bottom:2rem; }
+        .login-monogram {
+            width:60px; height:60px; border-radius:16px;
+            background:linear-gradient(135deg, #6366f1, #8b5cf6);
+            display:inline-flex; align-items:center; justify-content:center;
+            font-weight:900; font-size:1.2rem; color:#fff; letter-spacing:1px;
+            box-shadow:0 4px 20px rgba(99,102,241,.4);
+        }
+        .login-brand h4 { color:#fff; font-weight:700; margin-top:1rem; font-size:1.2rem; }
+        .login-brand p { color:#94a3b8; font-size:.8rem; margin-top:.25rem; }
+
+        .login-card {
+            background:rgba(30,41,59,.85); backdrop-filter:blur(20px);
+            border:1px solid rgba(51,65,85,.6); border-radius:16px;
+            padding:2rem;
+        }
+        .login-card .form-label { color:#94a3b8; font-size:.8rem; font-weight:500; }
+        .login-card .form-control {
+            background:#0f172a; border:1.5px solid #334155; color:#e2e8f0;
+            border-radius:10px; padding:10px 14px; font-size:.9rem;
+        }
+        .login-card .form-control:focus {
+            background:#0f172a; border-color:#6366f1; color:#e2e8f0;
+            box-shadow:0 0 0 3px rgba(99,102,241,.2);
+        }
+        .login-card .form-control::placeholder { color:#64748b; }
+        .login-card .input-group-text {
+            background:#1e293b; border-color:#334155; color:#6366f1;
+            border-radius:10px 0 0 10px;
+        }
+        .login-card .input-group .form-control { border-radius:0 10px 10px 0; }
+        .login-card .btn-admin {
+            width:100%; padding:11px; border-radius:10px; font-weight:600; font-size:.95rem;
+            background:linear-gradient(135deg, #6366f1, #7c3aed); border:none; color:#fff;
+        }
+        .login-card .btn-admin:hover { background:linear-gradient(135deg, #4f46e5, #6d28d9); }
+
+        .login-footer { text-align:center; margin-top:1.5rem; }
+        .login-footer a { color:#94a3b8; text-decoration:none; font-size:.8rem; }
+        .login-footer a:hover { color:#6366f1; }
+
+        .alert { font-size:.85rem; border-radius:10px; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-brand">
+            <div class="login-monogram">SA</div>
+            <h4>System Admin</h4>
+            <p>Restricted access — authorized personnel only</p>
+        </div>
+        <div class="login-card">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show py-2" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" style="padding:.4rem;filter:invert(1);"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
+                        <input type="text" name="username" class="form-control" placeholder="Enter admin username"
+                               value="{{ username if username else '' }}" required autofocus autocomplete="off">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-key"></i></span>
+                        <input type="password" name="password" class="form-control" placeholder="Enter admin password" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-admin">
+                    <i class="bi bi-shield-lock me-1"></i>Sign In to Admin Panel
+                </button>
+            </form>
+        </div>
+        <div class="login-footer">
+            <a href="/auth/login"><i class="bi bi-arrow-left me-1"></i>Back to User Login</a>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

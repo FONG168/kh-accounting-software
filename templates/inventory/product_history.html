@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Stock History — {{ product.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2><i class="bi bi-clock-history me-2"></i>Stock Audit Trail</h2>
+        <p class="text-muted mb-0">{{ product.sku }} — {{ product.name }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('inventory.stock_adjustment') }}" class="btn btn-outline-primary"><i class="bi bi-plus-lg me-1"></i>New Adjustment</a>
+        <a href="{{ url_for('inventory.stock_movements') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>All Movements</a>
+    </div>
+</div>
+
+<!-- Product Summary Card -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="text-muted small">Current Stock</div>
+                <div class="fs-3 fw-bold {% if current_stock < 0 %}text-danger{% elif current_stock <= (product.reorder_level|float) %}text-warning{% else %}text-success{% endif %}">
+                    {{ current_stock }} <small class="fs-6">{{ product.unit }}</small>
+                </div>
+                {% if current_stock < 0 %}
+                <span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Negative Stock</span>
+                {% elif current_stock <= (product.reorder_level|float) %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-circle me-1"></i>Low Stock</span>
+                {% else %}
+                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>In Stock</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="text-muted small">Reorder Level</div>
+                <div class="fs-3 fw-bold">{{ product.reorder_level|float }} <small class="fs-6">{{ product.unit }}</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="text-muted small">Total Stock In</div>
+                {% set total_in = history|selectattr('type', 'equalto', 'in')|map(attribute='quantity')|sum %}
+                <div class="fs-3 fw-bold text-success">{{ "%.2f"|format(total_in) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-3">
+                <div class="text-muted small">Total Stock Out</div>
+                {% set total_out = history|selectattr('type', 'equalto', 'out')|map(attribute='quantity')|sum %}
+                <div class="fs-3 fw-bold text-danger">{{ "%.2f"|format(total_out) }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Movement History Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-list-ul me-1"></i>Movement History ({{ history|length }} records)</span>
+        <div>
+            <span class="badge bg-success me-1"><i class="bi bi-box-arrow-in-down me-1"></i>In</span>
+            <span class="badge bg-danger me-1"><i class="bi bi-box-arrow-up me-1"></i>Out</span>
+            <span class="badge bg-warning text-dark"><i class="bi bi-pencil-square me-1"></i>Adjustment</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th class="text-end">Qty Change</th>
+                    <th class="text-end">Balance After</th>
+                    <th class="text-end">Unit Cost</th>
+                    <th class="text-end">Total Value</th>
+                    <th>Reference</th>
+                    <th>Customer / Vendor</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in history %}
+                <tr>
+                    <td class="text-nowrap">
+                        {{ h.date.strftime('%b %d, %Y') }}
+                        <div class="text-muted small">{{ h.created_at.strftime('%H:%M') if h.created_at else '' }}</div>
+                    </td>
+                    <td>
+                        {% if h.type == 'in' %}
+                        <span class="badge bg-success"><i class="bi bi-box-arrow-in-down me-1"></i>Stock In</span>
+                        {% elif h.type == 'out' %}
+                        <span class="badge bg-danger"><i class="bi bi-box-arrow-up me-1"></i>Stock Out</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark"><i class="bi bi-pencil-square me-1"></i>Adjustment</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-medium">
+                        {% if h.type == 'in' %}
+                        <span class="text-success">+{{ "%.2f"|format(h.quantity) }}</span>
+                        {% elif h.type == 'out' %}
+                        <span class="text-danger">−{{ "%.2f"|format(h.quantity) }}</span>
+                        {% else %}
+                        <span class="text-warning">={{ "%.2f"|format(h.quantity) }}</span>
+                        {% endif %}
+                        {{ product.unit }}
+                    </td>
+                    <td class="text-end">
+                        <span class="fw-bold {% if h.running_balance < 0 %}text-danger{% endif %}">
+                            {{ "%.2f"|format(h.running_balance) }}
+                        </span>
+                        {{ product.unit }}
+                    </td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(h.unit_cost) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(h.total_value) }}</td>
+                    <td>
+                        {% if h.reference != '—' %}
+                        <code class="small">{{ h.reference }}</code>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if h.customer %}
+                        <span class="text-primary"><i class="bi bi-person me-1"></i>{{ h.customer }}</span>
+                        {% elif h.vendor %}
+                        <span class="text-info"><i class="bi bi-truck me-1"></i>{{ h.vendor }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-muted" style="max-width:180px;">{{ h.notes[:80] if h.notes else '—' }}</td>
+                </tr>
+                {% endfor %}
+                {% if not history %}
+                <tr><td colspan="9" class="text-center text-muted py-4">No stock movements recorded for this product.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

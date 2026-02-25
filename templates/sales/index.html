@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Invoices / Sales{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-receipt me-2"></i>Invoices / Sales</h2>
+    <a href="{{ url_for('sales.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Invoice</a>
+</div>
+
+<!-- ─── OVERDUE NOTIFICATIONS ──────────────────────── -->
+{% set overdue_invoices = invoices | selectattr('status', 'equalto', 'overdue') | list %}
+{% if overdue_invoices %}
+<div class="bill-notification overdue mb-3">
+    <div>
+        <i class="bi bi-exclamation-triangle-fill fs-4 me-2"></i>
+        <strong>{{ overdue_invoices|length }} overdue invoice{{ 's' if overdue_invoices|length > 1 }}!</strong>
+        Total: <strong>{{ currency_symbol }}{{ "{:,.2f}".format(overdue_invoices|sum(attribute='balance_due')) }}</strong>
+    </div>
+</div>
+{% endif %}
+
+{% set owed_invoices = invoices | selectattr('status', 'equalto', 'owed') | list %}
+{% set urgent_invoices = [] %}
+{% for inv in owed_invoices %}
+    {% if inv.days_until_due is not none and inv.days_until_due <= 7 and inv.days_until_due >= 0 %}
+        {% if urgent_invoices.append(inv) %}{% endif %}
+    {% endif %}
+{% endfor %}
+{% if urgent_invoices %}
+<div class="bill-notification urgent mb-3">
+    <div>
+        <i class="bi bi-clock-fill fs-4 me-2"></i>
+        <strong>{{ urgent_invoices|length }} invoice{{ 's' if urgent_invoices|length > 1 }} due within 7 days</strong>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Invoice #</th>
+                    <th class="d-table-cell-md">Date</th>
+                    <th>Customer</th>
+                    <th class="d-table-cell-md">Due Date</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-end">Balance Due</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in invoices %}
+                <tr>
+                    <td><a href="{{ url_for('sales.view', id=inv.id) }}" class="fw-medium text-decoration-none">{{ inv.invoice_number }}</a></td>
+                    <td class="d-table-cell-md">{{ inv.date.strftime('%b %d, %Y') }}</td>
+                    <td>{{ inv.customer.name }}</td>
+                    <td class="d-table-cell-md">
+                        {{ inv.due_date.strftime('%b %d, %Y') if inv.due_date else '—' }}
+                        {% if inv.due_date and inv.status not in ['paid', 'draft'] %}
+                            {% set days = inv.days_until_due %}
+                            {% if days is not none %}
+                                {% if days < 0 %}
+                                    <span class="due-countdown overdue">{{ (-days) }}d overdue</span>
+                                {% elif days <= 3 %}
+                                    <span class="due-countdown urgent">{{ days }}d left</span>
+                                {% elif days <= 7 %}
+                                    <span class="due-countdown normal">{{ days }}d left</span>
+                                {% else %}
+                                    <span class="due-countdown safe">{{ days }}d</span>
+                                {% endif %}
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(inv.total) }}</td>
+                    <td class="text-end amount {{ 'amount-negative' if inv.balance_due > 0 else '' }}">{{ currency_symbol }}{{ "{:,.2f}".format(inv.balance_due) }}</td>
+                    <td>
+                        {% if inv.status == 'paid' %}
+                            <span class="stamp stamp-paid" style="font-size:.75rem;padding:2px 10px;transform:rotate(-6deg);"><i class="bi bi-check-circle-fill me-1"></i>PAID</span>
+                        {% elif inv.status == 'owed' %}
+                            <span class="stamp stamp-owed" style="font-size:.75rem;padding:2px 10px;transform:rotate(-6deg);"><i class="bi bi-clock-fill me-1"></i>OWED</span>
+                        {% elif inv.status == 'overdue' %}
+                            <span class="stamp stamp-overdue" style="font-size:.75rem;padding:2px 10px;transform:rotate(-6deg);"><i class="bi bi-exclamation-triangle-fill me-1"></i>OVERDUE</span>
+                        {% elif inv.status == 'partial' %}
+                            <span class="stamp stamp-partial" style="font-size:.75rem;padding:2px 10px;transform:rotate(-6deg);"><i class="bi bi-pie-chart-fill me-1"></i>PARTIAL</span>
+                        {% else %}
+                            <span class="badge-status badge-{{ inv.status }}">{{ inv.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('sales.view', id=inv.id) }}" class="btn btn-sm btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
+                        {% if inv.status in ['owed', 'partial', 'overdue', 'sent'] %}
+                        <a href="{{ url_for('sales.create_payment') }}?invoice_id={{ inv.id }}" class="btn btn-sm btn-outline-success" title="Receive payment"><i class="bi bi-cash"></i></a>
+                        {% endif %}
+                        {% if inv.status == 'draft' %}
+                        <form method="POST" action="{{ url_for('sales.delete', id=inv.id) }}" class="d-inline">
+                            <button class="btn btn-sm btn-outline-danger" data-confirm="Delete this invoice?"><i class="bi bi-trash"></i></button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not invoices %}
+                <tr><td colspan="8" class="text-center text-muted py-4">No invoices yet.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Categories{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-tags me-2"></i>Product & Service Categories</h2>
+    <a href="{{ url_for('categories.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Category</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Category Name</th>
+                    <th>Type</th>
+                    <th>Parent</th>
+                    <th>Description</th>
+                    <th>Products</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cat in categories %}
+                <tr>
+                    <td class="text-muted">{{ loop.index }}</td>
+                    <td class="fw-medium">
+                        {% if cat.parent %}
+                            <span class="text-muted ms-3">└ </span>
+                        {% endif %}
+                        {{ cat.name }}
+                        {% if cat.is_custom %}
+                        <span class="badge bg-success-subtle text-success ms-1" title="Custom category — kept when changing business type">Custom</span>
+                        {% else %}
+                        <span class="badge bg-primary-subtle text-primary ms-1" title="Industry default — auto-managed by business type">Industry</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if (cat.category_type or 'product') == 'service' %}
+                        <span class="badge bg-success"><i class="bi bi-tools me-1"></i>Service</span>
+                        {% else %}
+                        <span class="badge bg-primary"><i class="bi bi-box-seam me-1"></i>Product</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ cat.parent.name if cat.parent else '—' }}</td>
+                    <td class="text-muted">{{ cat.description or '—' }}</td>
+                    <td>
+                        {% set count = cat.products.count() %}
+                        {% if count > 0 %}
+                        <span class="badge bg-primary">{{ count }}</span>
+                        {% else %}
+                        <span class="text-muted">0</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cat.is_active %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('categories.edit', id=cat.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                        <form method="POST" action="{{ url_for('categories.delete', id=cat.id) }}" class="d-inline">
+                            <button class="btn btn-sm btn-outline-danger" data-confirm="Delete this category?"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not categories %}
+                <tr><td colspan="8" class="text-center text-muted py-4">
+                    No categories yet.
+                    <a href="{{ url_for('setup.settings') }}">Set up your industry</a> to auto-generate categories, or create one manually.
+                </td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

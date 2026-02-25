@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Profit & Loss{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-graph-up-arrow me-2"></i>Profit & Loss Statement</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+        <button onclick="exportReportPDF('Profit_Loss')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+    </div>
+</div>
+
+<!-- Date Filter -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">From</label>
+                <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start.isoformat() }}">
+            </div>
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">To</label>
+                <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end.isoformat() }}">
+            </div>
+            <div class="col-12 col-sm-auto">
+                <button class="btn btn-sm btn-primary">Apply</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header text-center">
+        <h5 class="mb-0">{{ config.COMPANY_NAME }}</h5>
+        <small class="text-muted">Profit & Loss Statement | {{ start.strftime('%b %d, %Y') }} – {{ end.strftime('%b %d, %Y') }}</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table report-table mb-0">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th class="text-end">Current Period</th>
+                    <th class="text-end text-muted">Prior Period</th>
+                </tr>
+            </thead>
+            <!-- REVENUE -->
+            <tbody>
+                <tr class="section-header"><td colspan="3">Revenue</td></tr>
+                {% for item in revenue_data %}
+                <tr class="indent-1">
+                    <td>{{ item.account.code }} – {{ item.account.name }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(item.balance) }}</td>
+                    <td class="text-end amount text-muted">{{ currency_symbol }}{{ "{:,.2f}".format(item.prior) }}</td>
+                </tr>
+                {% endfor %}
+                {% if not revenue_data %}
+                <tr class="indent-1"><td colspan="3" class="text-muted">No revenue recorded</td></tr>
+                {% endif %}
+                <tr class="section-total">
+                    <td>Total Revenue</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(total_revenue) }}</td>
+                    <td class="text-end amount text-muted">{{ currency_symbol }}{{ "{:,.2f}".format(prior_total_revenue) }}</td>
+                </tr>
+            </tbody>
+
+            <!-- EXPENSES -->
+            <tbody>
+                <tr class="section-header"><td colspan="3">Expenses</td></tr>
+                {% for item in expense_data %}
+                <tr class="indent-1">
+                    <td>{{ item.account.code }} – {{ item.account.name }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(item.balance) }}</td>
+                    <td class="text-end amount text-muted">{{ currency_symbol }}{{ "{:,.2f}".format(item.prior) }}</td>
+                </tr>
+                {% endfor %}
+                {% if not expense_data %}
+                <tr class="indent-1"><td colspan="3" class="text-muted">No expenses recorded</td></tr>
+                {% endif %}
+                <tr class="section-total">
+                    <td>Total Expenses</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(total_expenses) }}</td>
+                    <td class="text-end amount text-muted">{{ currency_symbol }}{{ "{:,.2f}".format(prior_total_expenses) }}</td>
+                </tr>
+            </tbody>
+
+            <!-- NET INCOME -->
+            <tbody>
+                <tr class="grand-total">
+                    <td>Net {{ 'Income' if net_income >= 0 else 'Loss' }}</td>
+                    <td class="text-end amount {{ 'amount-positive' if net_income >= 0 else 'amount-negative' }}">
+                        {{ currency_symbol }}{{ "{:,.2f}".format(net_income) }}
+                    </td>
+                    <td class="text-end amount text-muted">
+                        {{ currency_symbol }}{{ "{:,.2f}".format(prior_net_income) }}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

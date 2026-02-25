@@ -1,0 +1,659 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}All Users — System Admin{% endblock %}
+{% block page_title %}All Users{% endblock %}
+
+{% block extra_css %}
+<style>
+@keyframes fadeInUp { from{opacity:0;transform:translateY(16px);} to{opacity:1;transform:translateY(0);} }
+.u-fadein { animation: fadeInUp .4s ease both; }
+
+/* Search bar */
+.u-search-wrap {
+    position:relative; flex:1; max-width:350px;
+}
+.u-search-input {
+    width:100%; padding:.55rem 1rem .55rem 2.5rem;
+    background:var(--admin-bg); border:1px solid var(--admin-border);
+    border-radius:10px; color:var(--admin-text);
+    font-size:.82rem; font-family:inherit;
+    transition:all .2s;
+}
+.u-search-input:focus { outline:none; border-color:var(--admin-accent); box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+.u-search-input::placeholder { color:#475569; }
+.u-search-icon {
+    position:absolute; left:10px; top:50%; transform:translateY(-50%);
+    color:#64748b; font-size:.85rem; pointer-events:none;
+}
+.u-search-clear {
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:#64748b; font-size:.75rem;
+    cursor:pointer; display:none; padding:4px;
+}
+.u-search-clear:hover { color:#f87171; }
+
+/* Bulk toolbar */
+.bulk-toolbar {
+    display:none; align-items:center; gap:10px;
+    padding:.65rem 1rem;
+    background:rgba(99,102,241,.06);
+    border:1px solid rgba(99,102,241,.15);
+    border-radius:12px;
+    animation: fadeInUp .25s ease;
+}
+.bulk-toolbar.visible { display:flex; }
+.bulk-count {
+    font-size:.8rem; font-weight:700; color:#a5b4fc;
+    white-space:nowrap;
+}
+.bulk-btn {
+    padding:5px 14px; border-radius:8px;
+    font-size:.75rem; font-weight:600;
+    border:1px solid; cursor:pointer;
+    transition:all .15s; display:inline-flex;
+    align-items:center; gap:4px;
+    background:transparent;
+}
+.bulk-btn:hover { transform:translateY(-1px); }
+.bulk-btn-warning { color:#fbbf24; border-color:rgba(245,158,11,.2); }
+.bulk-btn-warning:hover { background:rgba(245,158,11,.1); }
+.bulk-btn-danger { color:#f87171; border-color:rgba(239,68,68,.2); }
+.bulk-btn-danger:hover { background:rgba(239,68,68,.1); }
+.bulk-btn-success { color:#4ade80; border-color:rgba(34,197,94,.2); }
+.bulk-btn-success:hover { background:rgba(34,197,94,.1); }
+.bulk-btn-info { color:#60a5fa; border-color:rgba(59,130,246,.2); }
+.bulk-btn-info:hover { background:rgba(59,130,246,.1); }
+.bulk-btn-purple { color:#a78bfa; border-color:rgba(139,92,246,.2); }
+.bulk-btn-purple:hover { background:rgba(139,92,246,.1); }
+
+/* Role badge in table */
+.role-badge {
+    font-size:.6rem; font-weight:600; padding:2px 8px;
+    border-radius:6px; letter-spacing:.3px; text-transform:uppercase;
+}
+
+/* Checkbox */
+.u-checkbox {
+    width:16px; height:16px;
+    accent-color:#6366f1;
+    cursor:pointer;
+}
+
+/* No results found */
+.u-no-results {
+    display:none; text-align:center; padding:2rem;
+    color:#64748b; font-size:.85rem;
+}
+
+/* Role modal */
+.bulk-role-select {
+    background:var(--admin-bg); border:1px solid var(--admin-border);
+    color:var(--admin-text); border-radius:8px;
+    font-size:.78rem; padding:5px 10px;
+    cursor:pointer;
+}
+.bulk-role-select:focus { border-color:var(--admin-accent); outline:none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4 u-fadein">
+    <h3 class="fw-bold mb-1"><i class="bi bi-people me-2"></i>All Users</h3>
+    <p style="color:var(--admin-text-muted);" class="mb-0">Manage user accounts, roles, suspend, lock, or remove</p>
+</div>
+
+<!-- Search + Status Filter -->
+<div class="d-flex flex-wrap align-items-center gap-3 mb-3 u-fadein" style="animation-delay:.05s;">
+    <div class="u-search-wrap">
+        <i class="bi bi-search u-search-icon"></i>
+        <input type="text" class="u-search-input" id="userSearchInput" placeholder="Search by name or email..." autocomplete="off">
+        <button type="button" class="u-search-clear" id="searchClear" onclick="clearSearch()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% set filters = [('all','All'),('active','Active'),('pending','Pending'),('suspended','Suspended'),('locked','Locked'),('rejected','Rejected')] %}
+        {% for val, label in filters %}
+        <a href="{{ url_for('admin.users_list', status=val) }}" class="btn btn-sm {% if status_filter == val %}btn-primary{% else %}btn-outline-light{% endif %}" style="font-size:.78rem;padding:4px 14px;">
+            {{ label }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Bulk Actions Toolbar -->
+<div class="bulk-toolbar mb-3" id="bulkToolbar">
+    <input type="checkbox" class="u-checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)" title="Select all">
+    <span class="bulk-count"><span id="selectedCount">0</span> selected</span>
+    <div class="d-flex flex-wrap gap-2 ms-auto">
+        <button type="button" class="bulk-btn bulk-btn-success" onclick="submitBulkAction('approve')"><i class="bi bi-check-circle"></i> Approve</button>
+        <button type="button" class="bulk-btn bulk-btn-success" onclick="submitBulkAction('reactivate')"><i class="bi bi-arrow-counterclockwise"></i> Reactivate</button>
+        <button type="button" class="bulk-btn bulk-btn-warning" onclick="submitBulkAction('suspend')"><i class="bi bi-pause-circle"></i> Suspend</button>
+        <button type="button" class="bulk-btn bulk-btn-danger" onclick="submitBulkAction('lock')"><i class="bi bi-lock"></i> Lock</button>
+        <div class="d-flex align-items-center gap-1">
+            <select id="bulkRoleSelect" class="bulk-role-select">
+                <option value="viewer">Viewer</option>
+                <option value="accountant">Accountant</option>
+                <option value="admin">Admin</option>
+            </select>
+            <button type="button" class="bulk-btn bulk-btn-purple" onclick="submitBulkAction('change_role')"><i class="bi bi-person-badge"></i> Set Role</button>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden bulk form -->
+<form id="bulkForm" method="POST" action="{{ url_for('admin.bulk_action') }}" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" id="bulkActionInput">
+    <input type="hidden" name="bulk_role" id="bulkRoleInput">
+    <div id="bulkUserInputs"></div>
+</form>
+
+{% if users %}
+<div class="admin-card u-fadein" style="animation-delay:.1s;">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0" id="usersTable">
+            <thead>
+                <tr>
+                    <th style="width:40px;"><input type="checkbox" class="u-checkbox" id="headerCheckbox" onchange="toggleSelectAll(this)"></th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Approval</th>
+                    <th>Account Status</th>
+                    <th>Last Login</th>
+                    <th>Registered</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody">
+                {% for user in users %}
+                <tr class="user-row" data-name="{{ user.full_name|lower }}" data-email="{{ user.email|lower }}" data-uid="{{ user.id }}">
+                    <td>
+                        {% if not user.is_superadmin %}
+                        <input type="checkbox" class="u-checkbox user-select-cb" value="{{ user.id }}" onchange="updateBulkToolbar()">
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center me-2
+                                {% if user.account_status == 'active' and user.approval_status == 'approved' %}bg-success bg-opacity-10{% elif user.account_status == 'suspended' %}bg-danger bg-opacity-10{% elif user.account_status == 'locked' %}bg-warning bg-opacity-10{% else %}bg-secondary bg-opacity-10{% endif %}"
+                                style="width:36px;height:36px;">
+                                <span class="fw-bold" style="font-size:.8rem;">{{ user.full_name[:2]|upper }}</span>
+                            </div>
+                            <span class="fw-bold" style="color:#fff;">{{ user.full_name }}</span>
+                            {% if user.is_superadmin %}
+                            <span class="badge ms-1" style="font-size:.6rem;background:rgba(99,102,241,.2);color:#818cf8;">SUPERADMIN</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="small" style="color:var(--admin-text-muted);">{{ user.email }}</td>
+                    <td>
+                        {% if user.role == 'admin' %}
+                            <span class="role-badge" style="background:rgba(239,68,68,.1);color:#f87171;"><i class="bi bi-shield-fill me-1" style="font-size:.5rem;"></i>Admin</span>
+                        {% elif user.role == 'accountant' %}
+                            <span class="role-badge" style="background:rgba(59,130,246,.1);color:#60a5fa;"><i class="bi bi-calculator me-1" style="font-size:.5rem;"></i>Accountant</span>
+                        {% else %}
+                            <span class="role-badge" style="background:rgba(34,197,94,.1);color:#4ade80;"><i class="bi bi-eye me-1" style="font-size:.5rem;"></i>Viewer</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if user.approval_status == 'approved' %}
+                            <span class="badge bg-success-subtle text-success">Approved</span>
+                        {% elif user.approval_status == 'pending' %}
+                            <span class="badge bg-warning-subtle text-warning">Pending</span>
+                        {% elif user.approval_status == 'rejected' %}
+                            <span class="badge bg-danger-subtle text-danger">Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if user.account_status == 'active' %}
+                            <span class="badge bg-success-subtle text-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                        {% elif user.account_status == 'suspended' %}
+                            <span class="badge bg-danger-subtle text-danger"><i class="bi bi-pause-circle me-1"></i>Suspended{% if user.suspended_until %} ({{ ((user.suspended_until - now).days + 1) if (user.suspended_until - now).days >= 0 else 0 }}d left){% endif %}</span>
+                        {% elif user.account_status == 'locked' %}
+                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-lock me-1"></i>Locked</span>
+                        {% elif user.account_status == 'removed' %}
+                            <span class="badge bg-secondary-subtle text-secondary"><i class="bi bi-trash me-1"></i>Removed</span>
+                        {% endif %}
+                    </td>
+                    <td class="small" style="color:var(--admin-text-muted);">{{ user.last_login.strftime('%b %d, %Y') if user.last_login else 'Never' }}</td>
+                    <td class="small" style="color:var(--admin-text-muted);">{{ user.created_at.strftime('%b %d, %Y') }}</td>
+                    <td class="text-end">
+                        {% if user.is_superadmin %}
+                        <span class="badge me-1" style="font-size:.7rem;background:rgba(99,102,241,.15);color:#818cf8;"><i class="bi bi-shield-lock me-1"></i>You</span>
+                        <a href="{{ url_for('admin.user_detail', user_id=user.id) }}" class="btn btn-sm btn-outline-info">
+                            <i class="bi bi-pencil-square me-1"></i>Edit
+                        </a>
+                        {% else %}
+                        <div class="d-flex gap-1 justify-content-end flex-wrap">
+                            <a href="{{ url_for('admin.user_detail', user_id=user.id) }}" class="btn btn-sm btn-outline-primary" title="View &amp; Edit">
+                                <i class="bi bi-eye"></i>
+                            </a>
+
+                            {% if user.account_status == 'active' %}
+                            <!-- Suspend -->
+                            <button class="btn btn-sm btn-outline-warning" title="Suspend" data-bs-toggle="modal" data-bs-target="#suspendModal{{ user.id }}">
+                                <i class="bi bi-pause-circle"></i>
+                            </button>
+                            <!-- Lock -->
+                            <button class="btn btn-sm btn-outline-warning" title="Lock" data-bs-toggle="modal" data-bs-target="#lockModal{{ user.id }}">
+                                <i class="bi bi-lock"></i>
+                            </button>
+                            {% endif %}
+
+                            {% if user.account_status in ('suspended', 'locked') %}
+                            <!-- Reactivate / Enable -->
+                            <form method="POST" action="{{ url_for('admin.reactivate_user', user_id=user.id) }}" class="d-inline" id="reactivateForm{{ user.id }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="button" class="btn btn-sm btn-outline-success" title="Enable / Reactivate" onclick="adminConfirm({theme:'success', title:'Reactivate Account', message:'Re-enable access for <strong style=color:#4ade80>{{ user.full_name }}</strong>?', confirmText:'Reactivate', confirmIcon:'bi-arrow-counterclockwise', form:document.getElementById('reactivateForm{{ user.id }}')})">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+
+                            <!-- Delete Permanently -->
+                            <button type="button" class="btn btn-sm btn-outline-danger" title="Delete permanently" onclick="openDeleteModal({{ user.id }}, '{{ user.full_name }}', '{{ user.email }}', '{{ user.full_name[:2]|upper }}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="u-no-results" id="noResults">
+    <i class="bi bi-search" style="font-size:2rem;color:#475569;display:block;margin-bottom:.5rem;"></i>
+    No users match your search.
+</div>
+{% else %}
+<div class="admin-card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-people" style="font-size:3rem;color:var(--admin-text-muted);"></i>
+        <h5 class="mt-3 fw-semibold">No Users Found</h5>
+        <p style="color:var(--admin-text-muted);">No users match the selected filter.</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Suspend & Lock modals for each user -->
+{% if users %}
+{% for user in users %}
+{% if not user.is_superadmin and user.account_status == 'active' %}
+<!-- Suspend Modal -->
+<div class="modal fade" id="suspendModal{{ user.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background:var(--admin-surface);border:1px solid rgba(245,158,11,.2);border-radius:16px;color:var(--admin-text);box-shadow:0 20px 60px rgba(0,0,0,.5);">
+            <form method="POST" action="{{ url_for('admin.suspend_user', user_id=user.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header" style="border-color:var(--admin-border);padding:1.25rem 1.5rem;">
+                    <h5 class="modal-title d-flex align-items-center gap-2" style="font-size:.95rem;font-weight:700;">
+                        <span class="d-flex align-items-center justify-content-center" style="width:32px;height:32px;border-radius:10px;background:rgba(245,158,11,.12);">
+                            <i class="bi bi-pause-circle-fill" style="color:#fbbf24;font-size:.95rem;"></i>
+                        </span>
+                        Suspend {{ user.full_name }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="font-size:.7rem;"></button>
+                </div>
+                <div class="modal-body" style="padding:1.5rem;">
+                    <div class="p-3 rounded-3 mb-3" style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);border-radius:10px;">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-info-circle-fill" style="color:#fbbf24;margin-top:1px;"></i>
+                            <p class="mb-0" style="font-size:.8rem;color:#fbbf24;line-height:1.5;">This is a temporary restriction. The user cannot log in during suspension. Their account will auto-reactivate after the specified duration.</p>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--admin-text-muted);display:block;margin-bottom:6px;">Suspension Duration</label>
+                        <select name="days" class="form-select" style="background:var(--admin-bg);border:1px solid var(--admin-border);color:var(--admin-text);border-radius:10px;padding:.6rem 1rem;font-size:.85rem;cursor:pointer;">
+                            <option value="1">1 day</option>
+                            <option value="3">3 days</option>
+                            <option value="7" selected>7 days</option>
+                            <option value="14">14 days</option>
+                            <option value="30">30 days</option>
+                            <option value="60">60 days</option>
+                            <option value="90">90 days</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--admin-text-muted);display:block;margin-bottom:6px;">Reason for Suspension</label>
+                        <textarea name="reason" rows="3" placeholder="Explain why this account is being suspended..." style="width:100%;background:var(--admin-bg);border:1px solid var(--admin-border);color:var(--admin-text);border-radius:10px;padding:.65rem 1rem;font-size:.85rem;font-family:inherit;resize:vertical;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-color:var(--admin-border);padding:1rem 1.5rem;gap:8px;">
+                    <button type="button" class="btn btn-sm" data-bs-dismiss="modal" style="background:var(--admin-surface2);color:var(--admin-text-muted);border:1px solid var(--admin-border);border-radius:8px;font-size:.8rem;font-weight:600;padding:.5rem 1.25rem;">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background:linear-gradient(135deg,#d97706,#f59e0b);color:#000;font-weight:700;border:none;border-radius:8px;font-size:.8rem;padding:.5rem 1.25rem;box-shadow:0 4px 12px rgba(245,158,11,.3);">
+                        <i class="bi bi-pause-circle-fill me-1"></i>Suspend Account
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Lock Modal -->
+<div class="modal fade" id="lockModal{{ user.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background:var(--admin-surface);border:1px solid rgba(139,92,246,.2);border-radius:16px;color:var(--admin-text);box-shadow:0 20px 60px rgba(0,0,0,.5);">
+            <form method="POST" action="{{ url_for('admin.lock_user', user_id=user.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header" style="border-color:var(--admin-border);padding:1.25rem 1.5rem;">
+                    <h5 class="modal-title d-flex align-items-center gap-2" style="font-size:.95rem;font-weight:700;">
+                        <span class="d-flex align-items-center justify-content-center" style="width:32px;height:32px;border-radius:10px;background:rgba(139,92,246,.12);">
+                            <i class="bi bi-lock-fill" style="color:#a78bfa;font-size:.95rem;"></i>
+                        </span>
+                        Lock {{ user.full_name }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="font-size:.7rem;"></button>
+                </div>
+                <div class="modal-body" style="padding:1.5rem;">
+                    <div class="p-3 rounded-3 mb-3" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:10px;">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-exclamation-triangle-fill" style="color:#f87171;margin-top:1px;"></i>
+                            <p class="mb-0" style="font-size:.8rem;color:#f87171;line-height:1.5;">This user will <strong style="color:#fca5a5;">not</strong> be able to log in while locked. Only you (admin) can unlock their account.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--admin-text-muted);display:block;margin-bottom:6px;">Reason for Locking</label>
+                        <textarea name="reason" rows="3" placeholder="Explain why this account is being locked..." style="width:100%;background:var(--admin-bg);border:1px solid var(--admin-border);color:var(--admin-text);border-radius:10px;padding:.65rem 1rem;font-size:.85rem;font-family:inherit;resize:vertical;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-color:var(--admin-border);padding:1rem 1.5rem;gap:8px;">
+                    <button type="button" class="btn btn-sm" data-bs-dismiss="modal" style="background:var(--admin-surface2);color:var(--admin-text-muted);border:1px solid var(--admin-border);border-radius:8px;font-size:.8rem;font-weight:600;padding:.5rem 1.25rem;">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;font-weight:700;border:none;border-radius:8px;font-size:.8rem;padding:.5rem 1.25rem;box-shadow:0 4px 12px rgba(139,92,246,.3);">
+                        <i class="bi bi-lock-fill me-1"></i>Lock Account
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- ═══ DELETE ACCOUNT MODAL ═══ -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+        <div class="modal-content" style="background:var(--admin-surface);border:1px solid rgba(239,68,68,.25);border-radius:20px;color:var(--admin-text);box-shadow:0 25px 80px rgba(0,0,0,.6),0 0 40px rgba(239,68,68,.08);overflow:hidden;">
+            <div style="height:4px;background:linear-gradient(90deg,#dc2626,#ef4444,#f87171,#ef4444,#dc2626);"></div>
+            <div style="padding:1.5rem 1.75rem 0;">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#dc2626,#ef4444);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(239,68,68,.35);">
+                            <i class="bi bi-exclamation-triangle-fill" style="color:#fff;font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 style="margin:0;font-size:1.05rem;font-weight:700;color:#fff;">Delete Account</h5>
+                            <p style="margin:0;font-size:.72rem;color:#94a3b8;">This action requires careful consideration</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="font-size:.65rem;opacity:.5;"></button>
+                </div>
+            </div>
+            <div id="delModalLoading" style="padding:3rem;text-align:center;">
+                <div class="spinner-border spinner-border-sm text-danger" role="status"></div>
+                <p style="margin-top:.75rem;font-size:.82rem;color:#94a3b8;">Analyzing user data...</p>
+            </div>
+            <div id="delModalContent" style="display:none;">
+                <div style="margin:0 1.75rem;padding:1rem 1.25rem;background:var(--admin-bg);border-radius:14px;border:1px solid var(--admin-border);">
+                    <div class="d-flex align-items-center gap-3">
+                        <div id="delUserAvatar" style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:.85rem;flex-shrink:0;"></div>
+                        <div style="flex:1;min-width:0;">
+                            <div id="delUserName" style="font-weight:700;color:#fff;font-size:.9rem;"></div>
+                            <div id="delUserEmail" style="font-size:.75rem;color:#64748b;"></div>
+                        </div>
+                        <span id="delUserTypeBadge" style="font-size:.68rem;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:.3px;flex-shrink:0;"></span>
+                    </div>
+                </div>
+                <div id="delUserAgeAlert" style="margin:1rem 1.75rem 0;padding:.85rem 1.1rem;border-radius:12px;font-size:.78rem;display:flex;align-items:start;gap:10px;line-height:1.55;"></div>
+                <div id="delDataSummary" style="margin:1rem 1.75rem 0;">
+                    <div style="font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px;"><i class="bi bi-database me-1"></i> Data Summary</div>
+                    <div id="delDataGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
+                    <div id="delTotalRecords" style="margin-top:8px;padding:8px 12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.12);border-radius:10px;font-size:.75rem;color:#f87171;text-align:center;font-weight:600;"></div>
+                </div>
+                <div style="margin:1.25rem 1.75rem 0;">
+                    <div style="font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:10px;"><i class="bi bi-signpost-split me-1"></i> Choose Delete Method</div>
+                    <div id="delOptionSoft" class="del-option" onclick="selectDeleteMode('soft')" style="padding:1rem 1.15rem;background:var(--admin-bg);border:2px solid var(--admin-border);border-radius:14px;cursor:pointer;transition:all .25s ease;margin-bottom:8px;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div style="width:36px;height:36px;border-radius:10px;background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-arrow-counterclockwise" style="color:#4ade80;font-size:.95rem;"></i></div>
+                            <div style="flex:1;"><div style="font-weight:700;font-size:.85rem;color:#fff;margin-bottom:2px;">Allow Recovery</div><div style="font-size:.73rem;color:#94a3b8;line-height:1.5;">Delete the account but <strong style="color:#4ade80;">preserve all data</strong>. If the user re-registers with the same email, they can recover their previous data.</div></div>
+                            <div class="del-radio" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--admin-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .25s;margin-top:2px;"><div style="width:10px;height:10px;border-radius:50%;background:transparent;transition:all .25s;"></div></div>
+                        </div>
+                    </div>
+                    <div id="delOptionHard" class="del-option" onclick="selectDeleteMode('hard')" style="padding:1rem 1.15rem;background:var(--admin-bg);border:2px solid var(--admin-border);border-radius:14px;cursor:pointer;transition:all .25s ease;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div style="width:36px;height:36px;border-radius:10px;background:rgba(239,68,68,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-fire" style="color:#f87171;font-size:.95rem;"></i></div>
+                            <div style="flex:1;"><div style="font-weight:700;font-size:.85rem;color:#fff;margin-bottom:2px;">Delete Everything</div><div style="font-size:.73rem;color:#94a3b8;line-height:1.5;">Permanently remove the account and <strong style="color:#f87171;">wipe all data</strong>. <span style="color:#f87171;">Cannot be undone.</span></div></div>
+                            <div class="del-radio" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--admin-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .25s;margin-top:2px;"><div style="width:10px;height:10px;border-radius:50%;background:transparent;transition:all .25s;"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div style="padding:1.25rem 1.75rem;margin-top:.5rem;border-top:1px solid var(--admin-border);display:flex;justify-content:flex-end;gap:10px;">
+                    <button type="button" class="btn btn-sm" data-bs-dismiss="modal" style="background:var(--admin-bg);color:var(--admin-text-muted);border:1px solid var(--admin-border);border-radius:10px;font-size:.8rem;font-weight:600;padding:.55rem 1.5rem;">Cancel</button>
+                    <button type="button" id="delConfirmBtn" onclick="confirmDelete()" disabled style="background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fca5a5;border:none;border-radius:10px;font-size:.8rem;font-weight:700;padding:.55rem 1.5rem;cursor:not-allowed;opacity:.5;transition:all .25s;display:inline-flex;align-items:center;gap:6px;">
+                        <i class="bi bi-trash3-fill"></i> <span id="delConfirmText">Select an option</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="deleteForm" method="POST" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="delete_mode" id="deleteFormMode" value="">
+</form>
+
+<style>
+.del-option.selected { border-color:rgba(239,68,68,.5) !important; background:rgba(239,68,68,.04) !important; }
+.del-option.selected-soft { border-color:rgba(34,197,94,.5) !important; background:rgba(34,197,94,.04) !important; }
+.del-option:hover:not(.selected):not(.selected-soft) { border-color:rgba(255,255,255,.1); background:rgba(255,255,255,.02); }
+.del-data-item { padding:6px 10px; border-radius:8px; background:rgba(255,255,255,.02); border:1px solid var(--admin-border); display:flex; justify-content:space-between; align-items:center; font-size:.75rem; }
+.del-data-item .label { color:#94a3b8; }
+.del-data-item .count { font-weight:700; color:#e2e8f0; }
+.del-data-item .count.has { color:#f87171; }
+</style>
+
+<script>
+let selectedDeleteMode = null;
+let currentDeleteUserId = null;
+
+function openDeleteModal(userId, fullName, email, initials) {
+    selectedDeleteMode = null;
+    currentDeleteUserId = userId;
+    document.getElementById('delModalLoading').style.display = 'block';
+    document.getElementById('delModalContent').style.display = 'none';
+    document.getElementById('delConfirmBtn').disabled = true;
+    document.getElementById('delConfirmBtn').style.opacity = '.5';
+    document.getElementById('delConfirmBtn').style.cursor = 'not-allowed';
+    document.getElementById('delConfirmText').textContent = 'Select an option';
+    document.querySelectorAll('.del-option').forEach(el => el.classList.remove('selected','selected-soft'));
+    document.querySelectorAll('.del-radio div').forEach(el => el.style.background = 'transparent');
+
+    const modal = new bootstrap.Modal(document.getElementById('deleteAccountModal'));
+    modal.show();
+
+    fetch(`/admin/users/${userId}/delete-info`)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('delUserAvatar').textContent = initials;
+            document.getElementById('delUserName').textContent = data.full_name;
+            document.getElementById('delUserEmail').textContent = data.email;
+
+            const badge = document.getElementById('delUserTypeBadge');
+            if (data.is_old_user) {
+                badge.textContent = 'OLD USER';
+                badge.style.background = 'rgba(245,158,11,.12)';
+                badge.style.color = '#fbbf24';
+            } else {
+                badge.textContent = 'NEW USER';
+                badge.style.background = 'rgba(34,197,94,.12)';
+                badge.style.color = '#4ade80';
+            }
+
+            const ageAlert = document.getElementById('delUserAgeAlert');
+            if (data.is_old_user) {
+                ageAlert.style.background = 'rgba(245,158,11,.06)';
+                ageAlert.style.border = '1px solid rgba(245,158,11,.15)';
+                ageAlert.innerHTML = `<i class="bi bi-clock-history" style="color:#fbbf24;font-size:1rem;margin-top:1px;flex-shrink:0;"></i><div><strong style="color:#fbbf24;">This is an old user</strong> registered since <strong style="color:#fbbf24;">${data.registered_on_display}</strong> (${data.days_since_registration} days ago). <span style="color:#cbd5e1;">Last login: ${data.last_login}.</span><br><span style="color:#e2e8f0;">Please consider whether they should be allowed to recover their data if they return.</span></div>`;
+            } else {
+                ageAlert.style.background = 'rgba(34,197,94,.06)';
+                ageAlert.style.border = '1px solid rgba(34,197,94,.15)';
+                ageAlert.innerHTML = `<i class="bi bi-person-plus" style="color:#4ade80;font-size:1rem;margin-top:1px;flex-shrink:0;"></i><div><strong style="color:#4ade80;">This is a new user</strong> registered on <strong style="color:#4ade80;">${data.registered_on_display}</strong> (${data.days_since_registration} days ago). <span style="color:#cbd5e1;">Last login: ${data.last_login}.</span></div>`;
+            }
+
+            const grid = document.getElementById('delDataGrid');
+            const labels = { invoices:'Invoices', bills:'Bills', expenses:'Expenses', journals:'Journals', customers:'Customers', vendors:'Vendors', products:'Products', accounts:'Accounts', categories:'Categories', budgets:'Budgets', credit_notes:'Credit Notes', debit_notes:'Debit Notes', payments_received:'Payments In', payments_made:'Payments Out' };
+            grid.innerHTML = '';
+            for (const [key, label] of Object.entries(labels)) {
+                const c = data.counts[key] || 0;
+                grid.innerHTML += `<div class="del-data-item"><span class="label">${label}</span><span class="count ${c > 0 ? 'has' : ''}">${c}</span></div>`;
+            }
+
+            document.getElementById('delTotalRecords').innerHTML = data.has_data
+                ? `<i class="bi bi-exclamation-diamond me-1"></i> Total: <strong>${data.total_records}</strong> records will be affected`
+                : `<i class="bi bi-check-circle me-1" style="color:#4ade80;"></i> <span style="color:#4ade80;">No data records found — safe to delete</span>`;
+
+            document.getElementById('deleteForm').action = `/admin/users/${userId}/remove`;
+
+            document.getElementById('delModalLoading').style.display = 'none';
+            document.getElementById('delModalContent').style.display = 'block';
+        })
+        .catch(() => {
+            document.getElementById('delModalLoading').innerHTML = '<p style="color:#f87171;font-size:.85rem;"><i class="bi bi-exclamation-circle me-1"></i>Failed to load user data.</p>';
+        });
+}
+
+function selectDeleteMode(mode) {
+    selectedDeleteMode = mode;
+    document.querySelectorAll('.del-option').forEach(el => el.classList.remove('selected','selected-soft'));
+    document.querySelectorAll('.del-radio div').forEach(el => el.style.background = 'transparent');
+    const btn = document.getElementById('delConfirmBtn');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    if (mode === 'soft') {
+        document.getElementById('delOptionSoft').classList.add('selected-soft');
+        document.getElementById('delOptionSoft').querySelector('.del-radio div').style.background = '#22c55e';
+        btn.style.background = 'linear-gradient(135deg,#15803d,#16a34a)';
+        btn.style.color = '#fff';
+        btn.style.boxShadow = '0 4px 16px rgba(34,197,94,.3)';
+        document.getElementById('delConfirmText').textContent = 'Delete & Allow Recovery';
+    } else {
+        document.getElementById('delOptionHard').classList.add('selected');
+        document.getElementById('delOptionHard').querySelector('.del-radio div').style.background = '#ef4444';
+        btn.style.background = 'linear-gradient(135deg,#dc2626,#ef4444)';
+        btn.style.color = '#fff';
+        btn.style.boxShadow = '0 4px 16px rgba(239,68,68,.3)';
+        document.getElementById('delConfirmText').textContent = 'Delete Forever';
+    }
+}
+
+function confirmDelete() {
+    if (!selectedDeleteMode) return;
+    document.getElementById('deleteFormMode').value = selectedDeleteMode;
+    document.getElementById('deleteForm').submit();
+}
+
+// ═══ SEARCH FUNCTIONALITY ═══
+const searchInput = document.getElementById('userSearchInput');
+const searchClear = document.getElementById('searchClear');
+const noResults = document.getElementById('noResults');
+
+if (searchInput) {
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        searchClear.style.display = query ? 'block' : 'none';
+        const rows = document.querySelectorAll('.user-row');
+        let visible = 0;
+        rows.forEach(row => {
+            const name = row.dataset.name || '';
+            const email = row.dataset.email || '';
+            const match = !query || name.includes(query) || email.includes(query);
+            row.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+        if (noResults) {
+            const table = document.querySelector('.admin-card');
+            if (visible === 0 && query) {
+                noResults.style.display = 'block';
+                if (table) table.style.display = 'none';
+            } else {
+                noResults.style.display = 'none';
+                if (table) table.style.display = '';
+            }
+        }
+    });
+}
+function clearSearch() {
+    searchInput.value = '';
+    searchInput.dispatchEvent(new Event('input'));
+    searchInput.focus();
+}
+
+// ═══ BULK SELECTION ═══
+function updateBulkToolbar() {
+    const checked = document.querySelectorAll('.user-select-cb:checked');
+    const toolbar = document.getElementById('bulkToolbar');
+    const countEl = document.getElementById('selectedCount');
+    if (checked.length > 0) {
+        toolbar.classList.add('visible');
+        countEl.textContent = checked.length;
+    } else {
+        toolbar.classList.remove('visible');
+    }
+    // Sync header checkbox
+    const all = document.querySelectorAll('.user-select-cb');
+    const hdr = document.getElementById('headerCheckbox');
+    const sa = document.getElementById('selectAllCheckbox');
+    if (hdr) hdr.checked = all.length > 0 && checked.length === all.length;
+    if (sa) sa.checked = all.length > 0 && checked.length === all.length;
+}
+
+function toggleSelectAll(el) {
+    const cbs = document.querySelectorAll('.user-select-cb');
+    cbs.forEach(cb => { cb.checked = el.checked; });
+    // Sync both checkboxes
+    const hdr = document.getElementById('headerCheckbox');
+    const sa = document.getElementById('selectAllCheckbox');
+    if (hdr) hdr.checked = el.checked;
+    if (sa) sa.checked = el.checked;
+    updateBulkToolbar();
+}
+
+function submitBulkAction(action) {
+    const checked = document.querySelectorAll('.user-select-cb:checked');
+    if (checked.length === 0) return;
+
+    const labels = {
+        suspend: { theme:'warning', title:'Bulk Suspend', msg:`Suspend <strong>${checked.length}</strong> user(s)?`, btn:'Suspend', icon:'bi-pause-circle' },
+        lock: { theme:'danger', title:'Bulk Lock', msg:`Lock <strong>${checked.length}</strong> user(s)?`, btn:'Lock', icon:'bi-lock' },
+        reactivate: { theme:'success', title:'Bulk Reactivate', msg:`Reactivate <strong>${checked.length}</strong> user(s)?`, btn:'Reactivate', icon:'bi-arrow-counterclockwise' },
+        approve: { theme:'success', title:'Bulk Approve', msg:`Approve <strong>${checked.length}</strong> user(s)?`, btn:'Approve', icon:'bi-check-circle' },
+        change_role: { theme:'info', title:'Bulk Change Role', msg:`Change role of <strong>${checked.length}</strong> user(s) to <strong>${document.getElementById('bulkRoleSelect').value}</strong>?`, btn:'Change Role', icon:'bi-person-badge' }
+    };
+    const cfg = labels[action] || labels.suspend;
+
+    // Build form inputs
+    const container = document.getElementById('bulkUserInputs');
+    container.innerHTML = '';
+    checked.forEach(cb => {
+        const inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'user_ids'; inp.value = cb.value;
+        container.appendChild(inp);
+    });
+    document.getElementById('bulkActionInput').value = action;
+    document.getElementById('bulkRoleInput').value = document.getElementById('bulkRoleSelect').value;
+
+    adminConfirm({
+        theme: cfg.theme,
+        title: cfg.title,
+        message: cfg.msg,
+        confirmText: cfg.btn,
+        confirmIcon: cfg.icon,
+        form: document.getElementById('bulkForm')
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+env/
+.env
+
+# Database
+*.db
+*.sqlite3
+
+# Firebase credentials (NEVER commit this)
+firebase-credentials.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Uploads (user-generated)
+static/uploads/*
+!static/uploads/.gitkeep
+
+# Logs
+*.log

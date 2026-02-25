@@ -1,0 +1,50 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Live Chat — System Admin{% endblock %}
+{% block page_title %}Live Chat{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1"><i class="bi bi-chat-dots me-2"></i>Live Chat Support</h3>
+        <p style="color:var(--admin-text-muted);" class="mb-0">View and respond to user conversations</p>
+    </div>
+    <a href="{{ url_for('admin.index') }}" class="btn btn-outline-light btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Back to Admin
+    </a>
+</div>
+
+{% if conversations %}
+<div class="admin-card" style="padding:0;">
+    <div class="list-group list-group-flush" style="background:transparent;">
+        {% for conv in conversations %}
+        <a href="{{ url_for('admin.chat_room', user_id=conv.user.id) }}" class="list-group-item list-group-item-action py-3" style="background:var(--admin-surface);border-color:var(--admin-border);color:var(--admin-text);">
+            <div class="d-flex align-items-center">
+                <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width:44px;height:44px;flex-shrink:0;background:rgba(99,102,241,.15);">
+                    <span class="fw-bold" style="color:var(--admin-accent);">{{ conv.user.full_name[:2]|upper }}</span>
+                </div>
+                <div class="flex-grow-1 min-width-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-semibold" style="color:var(--admin-text);">{{ conv.user.full_name }}</h6>
+                        <small style="color:var(--admin-text-muted);">{{ conv.last_time.strftime('%b %d, %I:%M %p') }}</small>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <p class="mb-0 small text-truncate" style="max-width:400px;color:var(--admin-text-muted);">{{ conv.last_message }}</p>
+                        {% if conv.unread > 0 %}
+                        <span class="badge rounded-pill ms-2" style="background:var(--admin-accent);">{{ conv.unread }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="admin-card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-chat" style="font-size:3rem;color:var(--admin-text-muted);"></i>
+        <h5 class="mt-3 fw-semibold">No Conversations Yet</h5>
+        <p style="color:var(--admin-text-muted);">When users send messages, they will appear here.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

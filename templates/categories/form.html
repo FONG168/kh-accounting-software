@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if category else 'New' }} Category{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-tags me-2"></i>{{ 'Edit' if category else 'New' }} Category</h2>
+</div>
+
+<div class="card" style="max-width: 550px;">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label class="form-label">Category Name *</label>
+                <input type="text" name="name" class="form-control" value="{{ category.name if category else '' }}" required autofocus>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Category Type *</label>
+                <div class="d-flex gap-3">
+                    <div class="form-check">
+                        <input type="radio" name="category_type" value="product" class="form-check-input" id="typeProduct"
+                               {{ 'checked' if not category or (category and (category.category_type or 'product') == 'product') }}>
+                        <label class="form-check-label" for="typeProduct">
+                            <i class="bi bi-box-seam text-primary me-1"></i>Product (Inventory)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input type="radio" name="category_type" value="service" class="form-check-input" id="typeService"
+                               {{ 'checked' if category and category.category_type == 'service' }}>
+                        <label class="form-check-label" for="typeService">
+                            <i class="bi bi-tools text-success me-1"></i>Service (Non-Inventory)
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Parent Category</label>
+                <select name="parent_id" class="form-select">
+                    <option value="">— None (Top Level) —</option>
+                    {% for p in parents %}
+                    <option value="{{ p.id }}"
+                            {{ 'selected' if category and category.parent_id == p.id }}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Optional. Use this to create sub-categories.</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea name="description" class="form-control" rows="2">{{ category.description if category else '' }}</textarea>
+            </div>
+            {% if category %}
+            <div class="mb-3">
+                <div class="form-check">
+                    <input type="checkbox" name="is_active" class="form-check-input" id="isActive"
+                           {{ 'checked' if category.is_active }}>
+                    <label class="form-check-label" for="isActive">Active</label>
+                </div>
+            </div>
+            {% endif %}
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'Update' if category else 'Create' }}</button>
+                <a href="{{ url_for('categories.index') }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

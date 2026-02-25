@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Stock Movements{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-arrow-left-right me-2"></i>Stock Movements</h2>
+    <a href="{{ url_for('inventory.stock_adjustment') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Stock Adjustment</a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small mb-1">Product</label>
+                <select name="product_id" class="form-select form-select-sm">
+                    <option value="">All Products</option>
+                    {% for p in products %}
+                    <option value="{{ p.id }}" {{ 'selected' if filter_product_id == p.id }}>{{ p.sku }} - {{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Type</label>
+                <select name="type" class="form-select form-select-sm">
+                    <option value="">All Types</option>
+                    <option value="in" {{ 'selected' if filter_type == 'in' }}>Stock In</option>
+                    <option value="out" {{ 'selected' if filter_type == 'out' }}>Stock Out</option>
+                    <option value="adjustment" {{ 'selected' if filter_type == 'adjustment' }}>Adjustment</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">From</label>
+                <input type="date" name="date_from" class="form-control form-control-sm" value="{{ filter_date_from }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">To</label>
+                <input type="date" name="date_to" class="form-control form-control-sm" value="{{ filter_date_to }}">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <a href="{{ url_for('inventory.stock_movements') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Product</th>
+                    <th>Type</th>
+                    <th class="text-end">Qty</th>
+                    <th class="text-end">Unit Cost</th>
+                    <th class="text-end">Value</th>
+                    <th>Reference</th>
+                    <th>Details</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in movements %}
+                <tr>
+                    <td class="text-nowrap">{{ m.date.strftime('%b %d, %Y') }}</td>
+                    <td>
+                        <a href="{{ url_for('inventory.product_history', id=m.product.id) }}" class="fw-medium text-decoration-none">
+                            {{ m.product.name }}
+                        </a>
+                        <div class="text-muted small">{{ m.product.sku }}</div>
+                    </td>
+                    <td>
+                        {% if m.movement_type == 'in' %}
+                        <span class="badge bg-success"><i class="bi bi-box-arrow-in-down me-1"></i>Stock In</span>
+                        {% elif m.movement_type == 'out' %}
+                        <span class="badge bg-danger"><i class="bi bi-box-arrow-up me-1"></i>Stock Out</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark"><i class="bi bi-pencil-square me-1"></i>Adjustment</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-medium">
+                        {% if m.movement_type == 'in' %}
+                        <span class="text-success">+{{ m.quantity }}</span>
+                        {% elif m.movement_type == 'out' %}
+                        <span class="text-danger">−{{ m.quantity }}</span>
+                        {% else %}
+                        <span class="text-warning">={{ m.quantity }}</span>
+                        {% endif %}
+                        {{ m.product.unit }}
+                    </td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(m.unit_cost) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(m.quantity * m.unit_cost) }}</td>
+                    <td>
+                        {% if m.reference %}
+                        <code class="small">{{ m.reference }}</code>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="text-muted small" style="max-width:200px;">{{ m.notes[:80] if m.notes else '—' }}</td>
+                    <td>
+                        <a href="{{ url_for('inventory.product_history', id=m.product.id) }}" class="btn btn-sm btn-outline-secondary" title="View full history">
+                            <i class="bi bi-clock-history"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not movements %}
+                <tr><td colspan="9" class="text-center text-muted py-4">No stock movements found.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+{% if movements %}
+<div class="text-muted small mt-2">Showing {{ movements|length }} movement{{ 's' if movements|length != 1 }}.</div>
+{% endif %}
+{% endblock %}

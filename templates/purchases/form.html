@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}New Bill{% endblock %}
+{% block extra_css %}
+<style>
+    .payment-choice { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    .payment-option {
+        flex: 1; border: 2px solid #e2e8f0; border-radius: 12px;
+        padding: 1.2rem; text-align: center; cursor: pointer;
+        transition: all .2s;
+    }
+    .payment-option:hover { border-color: #3b82f6; background: #f0f7ff; }
+    .payment-option.selected { border-color: #3b82f6; background: #eff6ff; box-shadow: 0 0 0 3px rgba(59,130,246,.25); }
+    .payment-option .opt-icon { font-size: 1.8rem; margin-bottom: .3rem; }
+    .payment-option .opt-label { font-weight: 700; font-size: .95rem; }
+    .payment-option .opt-desc { font-size: .78rem; color: #64748b; }
+    #payNowFields { display: none; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-bag me-2"></i>New Bill / Purchase</h2>
+</div>
+
+<form method="POST" id="billForm">
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Vendor *</label>
+                    <select name="vendor_id" class="form-select" required>
+                        <option value="">Select Vendor</option>
+                        {% for v in vendors %}
+                        <option value="{{ v.id }}">{{ v.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Date *</label>
+                    <input type="date" name="date" class="form-control" value="{{ today.isoformat() }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Due Date</label>
+                    <input type="date" name="due_date" class="form-control" value="{{ due_default }}" id="dueDate">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Tax Rate %</label>
+                    <input type="number" name="tax_rate" id="tax_rate" class="form-control" step="0.01" min="0" value="0" onchange="updateInvoiceTotal()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Line Items</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addInvoiceLine()"><i class="bi bi-plus-lg me-1"></i>Add Line</button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:25%">Product</th>
+                        <th>Description</th>
+                        <th style="width:100px">Qty</th>
+                        <th style="width:120px">Unit Cost</th>
+                        <th style="width:120px">Amount</th>
+                        <th style="width:50px"></th>
+                    </tr>
+                </thead>
+                <tbody id="invoiceLines">
+                    <tr>
+                        <td>
+                            <select name="items-0-product_id" class="form-select product-select" onchange="onProductSelect(this, 0)">
+                                <option value="">Select Product</option>
+                                {% for p in products %}
+                                <option value="{{ p.id }}">{{ p.sku }} - {{ p.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td><input type="text" name="items-0-description" class="form-control" required></td>
+                        <td><input type="number" name="items-0-quantity" class="form-control qty-input" step="0.01" min="0" value="1" onchange="updateLineAmount(0)"></td>
+                        <td><input type="number" name="items-0-unit_price" class="form-control price-input" step="0.01" min="0" value="0" onchange="updateLineAmount(0)"></td>
+                        <td><input type="number" name="items-0-amount" class="form-control amount-input" step="0.01" readonly></td>
+                        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeInvoiceLine(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3" style="max-width: 400px; margin-left: auto;">
+        <div class="card-body">
+            <div class="d-flex justify-content-between mb-2">
+                <span>Subtotal:</span>
+                <span class="fw-bold">$<span id="subtotal">0.00</span></span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span>Tax:</span>
+                <span>$<span id="taxAmount">0.00</span></span>
+            </div>
+            <hr>
+            <div class="d-flex justify-content-between">
+                <span class="fw-bold fs-5">Total:</span>
+                <span class="fw-bold fs-5">$<span id="grandTotal">0.00</span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Choice -->
+    <div class="card mb-3">
+        <div class="card-header fw-semibold"><i class="bi bi-wallet2 me-1"></i>Payment Option</div>
+        <div class="card-body">
+            <input type="hidden" name="payment_choice" id="paymentChoice" value="owe">
+            <div class="payment-choice">
+                <div class="payment-option selected" data-choice="owe" onclick="selectPayment('owe', this)">
+                    <div class="opt-icon text-danger"><i class="bi bi-clock-history"></i></div>
+                    <div class="opt-label">Pay Later (Owe)</div>
+                    <div class="opt-desc">Record bill and pay when due date arrives</div>
+                </div>
+                <div class="payment-option" data-choice="pay_now" onclick="selectPayment('pay_now', this)">
+                    <div class="opt-icon text-success"><i class="bi bi-check-circle"></i></div>
+                    <div class="opt-label">Pay Now</div>
+                    <div class="opt-desc">Pay immediately and mark bill as paid</div>
+                </div>
+            </div>
+
+            <!-- Pay Now fields (hidden by default) -->
+            <div id="payNowFields">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Pay From Account *</label>
+                        <select name="paid_from_account_id" class="form-select">
+                            {% for acct in bank_accounts %}
+                            <option value="{{ acct.id }}">{{ acct.code }} - {{ acct.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Payment Method</label>
+                        <select name="payment_method" class="form-select">
+                            <option value="cash">Cash</option>
+                            <option value="bank">Bank Transfer</option>
+                            <option value="check">Check</option>
+                            <option value="card">Card</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="2"></textarea>
+    </div>
+
+    <input type="hidden" name="item_count" id="itemCount" value="1">
+    <input type="hidden" name="discount_amount" id="discount_amount" value="0">
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+            <i class="bi bi-check-lg me-1"></i><span id="submitLabel">Save Bill (Owe)</span>
+        </button>
+        <a href="{{ url_for('purchases.index') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+    </div>
+</form>
+
+{% block extra_js %}
+<script>
+    window.productOptions = `{% for p in products %}<option value="{{ p.id }}">{{ p.sku }} - {{ p.name }}</option>{% endfor %}`;
+    window.productData = {
+        {% for p in products %}
+        '{{ p.id }}': { name: '{{ p.name }}', price: {{ p.cost_price }}, cost: {{ p.cost_price }} },
+        {% endfor %}
+    };
+
+    function selectPayment(choice, el) {
+        document.querySelectorAll('.payment-option').forEach(o => o.classList.remove('selected'));
+        el.classList.add('selected');
+        document.getElementById('paymentChoice').value = choice;
+        document.getElementById('payNowFields').style.display = choice === 'pay_now' ? 'block' : 'none';
+        document.getElementById('dueDate').closest('.col-md-3').style.display = choice === 'pay_now' ? 'none' : 'block';
+
+        const label = document.getElementById('submitLabel');
+        const btn = document.getElementById('submitBtn');
+        if (choice === 'pay_now') {
+            label.textContent = 'Save & Pay Now';
+            btn.className = 'btn btn-success btn-lg';
+        } else {
+            label.textContent = 'Save Bill (Owe)';
+            btn.className = 'btn btn-primary btn-lg';
+        }
+    }
+</script>
+{% endblock %}
+{% endblock %}

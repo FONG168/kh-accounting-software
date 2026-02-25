@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}New Journal Entry{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-journal-text me-2"></i>New Journal Entry</h2>
+</div>
+
+<form method="POST">
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Date *</label>
+                    <input type="date" name="date" class="form-control" value="{{ today.isoformat() }}" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Description</label>
+                    <input type="text" name="description" class="form-control" placeholder="Entry description">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Reference</label>
+                    <input type="text" name="reference" class="form-control" placeholder="e.g., Invoice #, Receipt #">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Journal Lines</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addJournalLine()"><i class="bi bi-plus-lg me-1"></i>Add Line</button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+            <table class="table mb-0 journal-lines-table">
+                <thead>
+                    <tr>
+                        <th style="width:30%">Account</th>
+                        <th>Description</th>
+                        <th style="width:140px">Debit</th>
+                        <th style="width:140px">Credit</th>
+                        <th style="width:50px"></th>
+                    </tr>
+                </thead>
+                <tbody id="journalLines">
+                    <tr>
+                        <td>
+                            <select name="lines-0-account_id" class="form-select" required>
+                                <option value="">Select Account</option>
+                                {% for acct in accounts %}
+                                <option value="{{ acct.id }}">{{ acct.code }} - {{ acct.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td><input type="text" name="lines-0-description" class="form-control" placeholder="Description"></td>
+                        <td><input type="number" name="lines-0-debit" class="form-control debit-input" step="0.01" min="0" value="0" onchange="updateJournalTotals()"></td>
+                        <td><input type="number" name="lines-0-credit" class="form-control credit-input" step="0.01" min="0" value="0" onchange="updateJournalTotals()"></td>
+                        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeJournalLine(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <select name="lines-1-account_id" class="form-select" required>
+                                <option value="">Select Account</option>
+                                {% for acct in accounts %}
+                                <option value="{{ acct.id }}">{{ acct.code }} - {{ acct.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td><input type="text" name="lines-1-description" class="form-control" placeholder="Description"></td>
+                        <td><input type="number" name="lines-1-debit" class="form-control debit-input" step="0.01" min="0" value="0" onchange="updateJournalTotals()"></td>
+                        <td><input type="number" name="lines-1-credit" class="form-control credit-input" step="0.01" min="0" value="0" onchange="updateJournalTotals()"></td>
+                        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeJournalLine(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="table-light fw-bold">
+                        <td colspan="2" class="text-end">Totals:</td>
+                        <td class="text-end" id="totalDebit">0.00</td>
+                        <td class="text-end" id="totalCredit">0.00</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" class="text-end fw-bold">Difference:</td>
+                        <td colspan="2" class="text-center" id="difference">0.00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <input type="hidden" name="line_count" id="lineCount" value="2">
+
+    <div class="d-flex gap-2">
+        <button type="submit" name="save" class="btn btn-outline-primary"><i class="bi bi-save me-1"></i>Save as Draft</button>
+        <button type="submit" name="post" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save & Post</button>
+        <a href="{{ url_for('journal.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+
+{% block extra_js %}
+<script>
+    // Make account options available for dynamic rows
+    window.accountOptions = `{% for acct in accounts %}<option value="{{ acct.id }}">{{ acct.code }} - {{ acct.name }}</option>{% endfor %}`;
+</script>
+{% endblock %}
+{% endblock %}

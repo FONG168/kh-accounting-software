@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Accounts Receivable Aging{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-hourglass-split me-2"></i>Accounts Receivable Aging</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+        <button onclick="exportReportPDF('AR_Aging')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header text-center">
+        <h5 class="mb-0">{{ config.COMPANY_NAME }}</h5>
+        <small class="text-muted">AR Aging as of {{ today.strftime('%B %d, %Y') }}</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th class="text-end">Current</th>
+                    <th class="text-end">31-60 Days</th>
+                    <th class="text-end">61-90 Days</th>
+                    <th class="text-end">90+ Days</th>
+                    <th class="text-end fw-bold">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in customer_aging %}
+                <tr>
+                    <td class="fw-medium">{{ item.customer.name }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(item.current) if item.current else '' }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(item['31-60']) if item['31-60'] else '' }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(item['61-90']) if item['61-90'] else '' }}</td>
+                    <td class="text-end amount text-danger">{{ currency_symbol }}{{ "{:,.2f}".format(item['90+']) if item['90+'] else '' }}</td>
+                    <td class="text-end amount fw-bold">{{ currency_symbol }}{{ "{:,.2f}".format(item.total) }}</td>
+                </tr>
+                {% endfor %}
+                {% if not customer_aging %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No outstanding receivables.</td></tr>
+                {% endif %}
+            </tbody>
+            {% if customer_aging %}
+            <tfoot>
+                <tr class="fw-bold table-light">
+                    <td>Total</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(customer_aging|sum(attribute='current')) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(customer_aging|map(attribute='31-60')|sum) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(customer_aging|map(attribute='61-90')|sum) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(customer_aging|map(attribute='90+')|sum) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(customer_aging|sum(attribute='total')) }}</td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

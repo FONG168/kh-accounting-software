@@ -1,0 +1,169 @@
+{% extends "auth/base_auth.html" %}
+{% block title %}Register — KH Accounting Software Enterprise{% endblock %}
+{% block content %}
+
+{% if show_recovery is defined and show_recovery %}
+<!-- ═══ ACCOUNT RECOVERY CHOICE ═══ -->
+<style>
+    .recovery-card { background:rgba(255,255,255,.03); border:2px solid rgba(255,255,255,.08); border-radius:16px; padding:1.35rem; cursor:pointer; transition:all .3s ease; position:relative; overflow:hidden; }
+    .recovery-card:hover { border-color:rgba(255,255,255,.15); background:rgba(255,255,255,.05); transform:translateY(-2px); }
+    .recovery-card.rc-selected { border-color:rgba(99,102,241,.5); background:rgba(99,102,241,.05); box-shadow:0 0 20px rgba(99,102,241,.1); }
+    .recovery-card .rc-radio { width:22px; height:22px; border-radius:50%; border:2px solid rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .3s; }
+    .recovery-card .rc-radio .dot { width:12px; height:12px; border-radius:50%; background:transparent; transition:all .3s; }
+    .recovery-card.rc-selected .rc-radio { border-color:#6366f1; }
+    .recovery-card.rc-selected .rc-radio .dot { background:#6366f1; }
+    .rc-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0; }
+    .recovery-alert { background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.15); border-radius:12px; padding:1rem 1.15rem; margin-bottom:1.5rem; display:flex; align-items:start; gap:12px; }
+</style>
+
+<h2 style="display:flex;align-items:center;gap:10px;">
+    <span style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:inline-flex;align-items:center;justify-content:center;">
+        <i class="bi bi-arrow-repeat" style="color:#fff;font-size:1rem;"></i>
+    </span>
+    Welcome Back!
+</h2>
+<p class="subtitle" style="margin-bottom:1.25rem;">We found a previous account linked to this email.</p>
+
+<div class="recovery-alert">
+    <i class="bi bi-clock-history" style="color:#fbbf24;font-size:1.1rem;margin-top:2px;flex-shrink:0;"></i>
+    <div style="font-size:.85rem;line-height:1.6;">
+        <strong style="color:#fbbf24;">Previous account found!</strong><br>
+        <span style="opacity:.8;">Account deleted since <strong style="color:#fbbf24;">{{ deleted_user.deleted_at.strftime('%d-%m-%Y') if deleted_user.deleted_at else 'Unknown' }}</strong>.</span><br>
+        <span style="opacity:.7;">The admin has allowed you to recover your previous data.</span>
+    </div>
+</div>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="full_name" value="{{ full_name }}">
+    <input type="hidden" name="email" value="{{ email }}">
+    <input type="hidden" name="recovery_choice" id="recoveryChoice" value="">
+
+    <!-- Password fields (need to re-enter) -->
+    <div class="mb-3">
+        <label class="form-label">New Password</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+            <div class="pwd-field-wrap">
+                <input type="password" name="password" class="form-control" placeholder="Min 8 characters" required minlength="8">
+                <button type="button" class="pwd-toggle-btn" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
+            </div>
+        </div>
+    </div>
+    <div class="mb-4">
+        <label class="form-label">Confirm Password</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+            <div class="pwd-field-wrap">
+                <input type="password" name="confirm_password" class="form-control" placeholder="Re-enter password" required minlength="8">
+                <button type="button" class="pwd-toggle-btn" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <p style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;opacity:.5;margin-bottom:.75rem;">
+        <i class="bi bi-signpost-split me-1"></i> What would you like to do?
+    </p>
+
+    <!-- Option 1: Recover previous data -->
+    <div class="recovery-card mb-3" onclick="selectRecovery('recover', this)">
+        <div class="d-flex align-items-start gap-3">
+            <div class="rc-icon" style="background:rgba(34,197,94,.1);">
+                <i class="bi bi-arrow-counterclockwise" style="color:#4ade80;"></i>
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:700;font-size:.9rem;margin-bottom:3px;">Recover My Previous Data</div>
+                <div style="font-size:.78rem;opacity:.6;line-height:1.5;">Restore your old account with all your invoices, expenses, journals, customers, and other data intact. Pick up right where you left off.</div>
+            </div>
+            <div class="rc-radio"><div class="dot"></div></div>
+        </div>
+    </div>
+
+    <!-- Option 2: Start fresh -->
+    <div class="recovery-card mb-4" onclick="selectRecovery('fresh', this)">
+        <div class="d-flex align-items-start gap-3">
+            <div class="rc-icon" style="background:rgba(99,102,241,.1);">
+                <i class="bi bi-stars" style="color:#818cf8;"></i>
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:700;font-size:.9rem;margin-bottom:3px;">Start Completely Fresh</div>
+                <div style="font-size:.78rem;opacity:.6;line-height:1.5;">Delete all previous data and begin with a clean slate. Your old records will be permanently removed.</div>
+            </div>
+            <div class="rc-radio"><div class="dot"></div></div>
+        </div>
+    </div>
+
+    <button type="submit" id="recoverySubmitBtn" class="btn btn-primary" disabled style="opacity:.5;cursor:not-allowed;transition:all .3s;">
+        <i class="bi bi-check-lg me-1"></i><span id="recoveryBtnText">Select an option above</span>
+    </button>
+    <div class="auth-footer">
+        Changed your mind? <a href="{{ url_for('auth.register') }}">Use a different email</a>
+    </div>
+</form>
+
+<script>
+function selectRecovery(choice, el) {
+    document.getElementById('recoveryChoice').value = choice;
+    document.querySelectorAll('.recovery-card').forEach(c => c.classList.remove('rc-selected'));
+    el.classList.add('rc-selected');
+    const btn = document.getElementById('recoverySubmitBtn');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    document.getElementById('recoveryBtnText').textContent =
+        choice === 'recover' ? 'Recover My Account' : 'Start Fresh';
+}
+</script>
+
+{% else %}
+<!-- ═══ NORMAL REGISTRATION FORM ═══ -->
+<h2>Create your account</h2>
+<p class="subtitle">Start managing your business finances in minutes.</p>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-3">
+        <label class="form-label">Full Name</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person"></i></span>
+            <input type="text" name="full_name" class="form-control" placeholder="Your full name"
+                   value="{{ full_name if full_name else '' }}" required autofocus>
+        </div>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Email Address</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+            <input type="email" name="email" class="form-control" placeholder="you@example.com"
+                   value="{{ email if email else '' }}" required>
+        </div>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Password</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+            <div class="pwd-field-wrap">
+                <input type="password" name="password" class="form-control" placeholder="Min 8 characters" required minlength="8">
+                <button type="button" class="pwd-toggle-btn" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
+            </div>
+        </div>
+    </div>
+    <div class="mb-4">
+        <label class="form-label">Confirm Password</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+            <div class="pwd-field-wrap">
+                <input type="password" name="confirm_password" class="form-control" placeholder="Re-enter password" required minlength="8">
+                <button type="button" class="pwd-toggle-btn" tabindex="-1" aria-label="Toggle password visibility"><i class="bi bi-eye"></i></button>
+            </div>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary">
+        <i class="bi bi-person-plus me-1"></i>Create Account
+    </button>
+    <div class="auth-footer">
+        Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a>
+    </div>
+</form>
+{% endif %}
+{% endblock %}

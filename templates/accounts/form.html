@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if account else 'New' }} Account{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-list-columns-reverse me-2"></i>{{ 'Edit' if account else 'New' }} Account</h2>
+</div>
+
+<div class="card" style="max-width: 700px;">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Account Code *</label>
+                    <input type="text" name="code" class="form-control" value="{{ account.code if account else '' }}" required>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Account Name *</label>
+                    <input type="text" name="name" class="form-control" value="{{ account.name if account else '' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Account Type *</label>
+                    <select name="account_type" class="form-select" required>
+                        <option value="">Select Type</option>
+                        {% for t in ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense'] %}
+                        <option value="{{ t }}" {{ 'selected' if account and account.account_type == t }}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Sub-Type</label>
+                    <select name="sub_type" class="form-select">
+                        <option value="">None</option>
+                        {% for st in ['Current Asset', 'Fixed Asset', 'Other Asset', 'Current Liability', 'Long-term Liability', 'Owner Equity', 'Retained Earnings', 'Operating Revenue', 'Other Revenue', 'Cost of Goods Sold', 'Operating Expense', 'Other Expense'] %}
+                        <option value="{{ st }}" {{ 'selected' if account and account.sub_type == st }}>{{ st }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Parent Account</label>
+                    <select name="parent_id" class="form-select">
+                        <option value="">None (Top Level)</option>
+                        {% for p in parents %}
+                        <option value="{{ p.id }}" {{ 'selected' if account and account.parent_id == p.id }}>{{ p.code }} - {{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-control" rows="2">{{ account.description if account else '' }}</textarea>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'Update' if account else 'Create' }} Account</button>
+                <a href="{{ url_for('accounts.index') }}" class="btn btn-outline-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

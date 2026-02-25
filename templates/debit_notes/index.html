@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Debit Notes{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-receipt me-2"></i>Debit Notes</h2>
+    <a href="{{ url_for('debit_notes.create') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>New Debit Note</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>DN #</th>
+                    <th>Date</th>
+                    <th>Vendor</th>
+                    <th>Bill</th>
+                    <th>Reason</th>
+                    <th class="text-end">Total</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dn in debit_notes %}
+                <tr>
+                    <td><a href="{{ url_for('debit_notes.view', id=dn.id) }}">{{ dn.debit_note_number }}</a></td>
+                    <td>{{ dn.date.strftime('%b %d, %Y') }}</td>
+                    <td>{{ dn.vendor.name }}</td>
+                    <td>{{ dn.bill.bill_number if dn.bill else '—' }}</td>
+                    <td>{{ dn.reason | truncate(40) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(dn.total) }}</td>
+                    <td>
+                        {% if dn.status == 'applied' %}
+                        <span class="badge bg-success">Applied</span>
+                        {% elif dn.status == 'void' %}
+                        <span class="badge bg-secondary">Void</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">Draft</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('debit_notes.view', id=dn.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% if not debit_notes %}
+        <div class="text-center text-muted py-5">
+            <p>No debit notes found.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if pagination and pagination.pages > 1 %}
+<nav class="mt-3">
+    <ul class="pagination justify-content-center">
+        {% if pagination.has_prev %}
+        <li class="page-item"><a class="page-link" href="?page={{ pagination.prev_num }}">Previous</a></li>
+        {% endif %}
+        {% for p in pagination.iter_pages() %}
+        {% if p %}
+        <li class="page-item {{ 'active' if p == pagination.page }}"><a class="page-link" href="?page={{ p }}">{{ p }}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+        {% endfor %}
+        {% if pagination.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ pagination.next_num }}">Next</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

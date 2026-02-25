@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Sales Report{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-bar-chart-line me-2"></i>Sales Report</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+        <button onclick="exportReportPDF('Sales_Report')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">From</label>
+                <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start.isoformat() }}">
+            </div>
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">To</label>
+                <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end.isoformat() }}">
+            </div>
+            <div class="col-12 col-sm-auto"><button class="btn btn-sm btn-primary w-100 w-sm-auto">Apply</button></div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4">
+        <div class="stat-card bg-primary-gradient">
+            <div class="stat-label">Total Sales</div>
+            <div class="stat-value">{{ currency_symbol }}{{ "{:,.2f}".format(total_sales) }}</div>
+            <div class="stat-icon"><i class="bi bi-receipt"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="stat-card bg-success-gradient">
+            <div class="stat-label">Total Collected</div>
+            <div class="stat-value">{{ currency_symbol }}{{ "{:,.2f}".format(total_paid) }}</div>
+            <div class="stat-icon"><i class="bi bi-cash"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="stat-card bg-warning-gradient">
+            <div class="stat-label">Outstanding</div>
+            <div class="stat-value">{{ currency_symbol }}{{ "{:,.2f}".format(total_outstanding) }}</div>
+            <div class="stat-icon"><i class="bi bi-hourglass"></i></div>
+        </div>
+    </div>
+</div>
+
+<!-- Daily Sales Summary -->
+{% if daily %}
+<div class="card mb-3">
+    <div class="card-header">Daily Sales Summary</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table mb-0">
+            <thead><tr><th>Date</th><th class="text-end">Invoices</th><th class="text-end">Total Sales</th></tr></thead>
+            <tbody>
+                {% for d in daily %}
+                <tr>
+                    <td>{{ d.date.strftime('%b %d, %Y') }}</td>
+                    <td class="text-end">{{ d.count }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(d.total) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Invoice List -->
+<div class="card">
+    <div class="card-header">Invoice Details</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr><th>Invoice #</th><th class="d-table-cell-md">Date</th><th>Customer</th><th class="d-table-cell-sm">Status</th><th class="text-end">Total</th><th class="text-end d-table-cell-md">Paid</th><th class="text-end">Due</th></tr>
+            </thead>
+            <tbody>
+                {% for inv in invoices %}
+                <tr>
+                    <td><a href="{{ url_for('sales.view', id=inv.id) }}">{{ inv.invoice_number }}</a></td>
+                    <td class="d-table-cell-md">{{ inv.date.strftime('%b %d, %Y') }}</td>
+                    <td>{{ inv.customer.name }}</td>
+                    <td class="d-table-cell-sm"><span class="badge-status badge-{{ inv.status }}">{{ inv.status }}</span></td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(inv.total) }}</td>
+                    <td class="text-end amount d-table-cell-md">{{ currency_symbol }}{{ "{:,.2f}".format(inv.amount_paid) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(inv.balance_due) }}</td>
+                </tr>
+                {% endfor %}
+                {% if not invoices %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No sales in this period.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Payments Made{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-wallet2 me-2"></i>Payments Made</h2>
+    <a href="{{ url_for('purchases.create_payment') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Make Payment</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr><th>Payment #</th><th>Date</th><th>Vendor</th><th>Bill</th><th>Method</th><th class="text-end">Amount</th></tr>
+            </thead>
+            <tbody>
+                {% for p in payments %}
+                <tr>
+                    <td class="fw-medium">{{ p.payment_number }}</td>
+                    <td>{{ p.date.strftime('%b %d, %Y') }}</td>
+                    <td>{{ p.vendor.name }}</td>
+                    <td>{{ p.bill.bill_number if p.bill else '—' }}</td>
+                    <td>{{ p.payment_method }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(p.amount) }}</td>
+                </tr>
+                {% endfor %}
+                {% if not payments %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No payments made yet.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

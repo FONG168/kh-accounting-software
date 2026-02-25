@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Record Payment Received{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-cash-stack me-2"></i>Receive Payment</h2>
+</div>
+
+{% if prefill_invoice %}
+<div class="alert alert-info d-flex align-items-center justify-content-between">
+    <div>
+        <i class="bi bi-info-circle me-2"></i>
+        Receiving payment for <strong>{{ prefill_invoice.invoice_number }}</strong> from <strong>{{ prefill_invoice.customer.name }}</strong>
+        — Balance due: <strong class="text-danger">{{ currency_symbol }}{{ "{:,.2f}".format(prefill_invoice.balance_due) }}</strong>
+        {% if prefill_invoice.due_date %}
+            {% set days = prefill_invoice.days_until_due %}
+            {% if days is not none and days < 0 %}
+                <span class="badge bg-danger ms-2">{{ (-days) }} days overdue!</span>
+            {% elif days is not none and days <= 7 %}
+                <span class="badge bg-warning text-dark ms-2">{{ days }} days left</span>
+            {% endif %}
+        {% endif %}
+    </div>
+    {% if prefill_invoice.status in ['owed', 'overdue'] %}
+    <span class="stamp stamp-owed" style="font-size:.9rem;padding:4px 12px;transform:rotate(-6deg);">OWED</span>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="card" style="max-width: 700px;">
+    <div class="card-body">
+        <form method="POST">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Customer *</label>
+                    <select name="customer_id" class="form-select" required>
+                        <option value="">Select Customer</option>
+                        {% for c in customers %}
+                        <option value="{{ c.id }}" {{ 'selected' if prefill_invoice and prefill_invoice.customer_id == c.id }}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Invoice</label>
+                    <select name="invoice_id" class="form-select">
+                        <option value="">No specific invoice</option>
+                        {% for inv in invoices %}
+                        <option value="{{ inv.id }}" {{ 'selected' if prefill_invoice and prefill_invoice.id == inv.id }}>
+                            {{ inv.invoice_number }} - {{ inv.customer.name }} ({{ currency_symbol }}{{ "{:,.2f}".format(inv.balance_due) }} due)
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Date *</label>
+                    <input type="date" name="date" class="form-control" value="{{ today.isoformat() }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Amount *</label>
+                    <input type="number" name="amount" class="form-control" step="0.01" min="0.01"
+                           value="{{ '{:.2f}'.format(prefill_invoice.balance_due) if prefill_invoice else '' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Payment Method</label>
+                    <select name="payment_method" class="form-select">
+                        <option value="cash">Cash</option>
+                        <option value="bank">Bank Transfer</option>
+                        <option value="check">Check</option>
+                        <option value="card">Card</option>
+                        <option value="e-wallet">E-Wallet</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Deposit To Account *</label>
+                    <select name="deposit_to_account_id" class="form-select" required>
+                        {% for acct in bank_accounts %}
+                        <option value="{{ acct.id }}">{{ acct.code }} - {{ acct.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Reference</label>
+                    <input type="text" name="reference" class="form-control" placeholder="Check #, Transaction ID">
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success btn-lg"><i class="bi bi-check-lg me-1"></i>Record Payment</button>
+                {% if prefill_invoice %}
+                <a href="{{ url_for('sales.view', id=prefill_invoice.id) }}" class="btn btn-outline-secondary btn-lg ms-2">Cancel</a>
+                {% else %}
+                <a href="{{ url_for('sales.payments') }}" class="btn btn-outline-secondary btn-lg ms-2">Cancel</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

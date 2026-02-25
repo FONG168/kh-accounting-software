@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Cash Flow Statement{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-currency-dollar me-2"></i>Cash Flow Statement</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+        <button onclick="exportReportPDF('Cash_Flow')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">From</label>
+                <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start.isoformat() }}">
+            </div>
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">To</label>
+                <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end.isoformat() }}">
+            </div>
+            <div class="col-12 col-sm-auto"><button class="btn btn-sm btn-primary">Apply</button></div>
+        </form>
+    </div>
+</div>
+
+{# ── Helper macro for amounts ── #}
+{% macro amt(value) %}
+{% if value < -0.001 %}
+<span class="amount-negative">({{ currency_symbol }}{{ "{:,.2f}".format(value | abs) }})</span>
+{% elif value > 0.001 %}
+<span class="amount-positive">{{ currency_symbol }}{{ "{:,.2f}".format(value) }}</span>
+{% else %}
+{{ currency_symbol }}0.00
+{% endif %}
+{% endmacro %}
+
+<div class="card">
+    <div class="card-header text-center">
+        <h5 class="mb-0">{{ config.COMPANY_NAME }}</h5>
+        <small class="text-muted">Cash Flow Statement (Indirect Method) | {{ start.strftime('%b %d, %Y') }} – {{ end.strftime('%b %d, %Y') }}</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table report-table mb-0">
+
+            <!-- ═══ OPERATING ACTIVITIES ═══ -->
+            <tbody>
+                <tr class="section-header"><td colspan="2"><strong>1. Cash Flow from Operating Activities</strong></td></tr>
+
+                <tr class="indent-1">
+                    <td>Net Income</td>
+                    <td class="text-end amount">{{ amt(net_income) }}</td>
+                </tr>
+
+                <!-- Non-cash adjustments -->
+                {% if depreciation > 0.001 %}
+                <tr class="indent-1 text-muted"><td colspan="2"><em>Adjustments for non-cash items:</em></td></tr>
+                <tr class="indent-2">
+                    <td>Add: Depreciation Expense</td>
+                    <td class="text-end amount">{{ amt(depreciation) }}</td>
+                </tr>
+                {% endif %}
+
+                <!-- Working capital changes -->
+                {% if wc_items %}
+                <tr class="indent-1 text-muted"><td colspan="2"><em>Changes in working capital:</em></td></tr>
+                {% for item in wc_items %}
+                <tr class="indent-2">
+                    <td>
+                        {% if item.amount > 0 %}Decrease{% else %}Increase{% endif %} in {{ item.label }}
+                    </td>
+                    <td class="text-end amount">{{ amt(item.amount) }}</td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+
+                <tr class="section-total">
+                    <td><strong>Net Cash from Operating Activities</strong></td>
+                    <td class="text-end amount"><strong>{{ amt(operating_cash) }}</strong></td>
+                </tr>
+            </tbody>
+
+            <!-- ═══ INVESTING ACTIVITIES ═══ -->
+            <tbody>
+                <tr class="section-header"><td colspan="2"><strong>2. Cash Flow from Investing Activities</strong></td></tr>
+                {% if investing_items %}
+                {% for item in investing_items %}
+                <tr class="indent-1">
+                    <td>{{ item.label }}</td>
+                    <td class="text-end amount">{{ amt(item.amount) }}</td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr class="indent-1"><td colspan="2" class="text-muted fst-italic">No investing activity this period</td></tr>
+                {% endif %}
+                <tr class="section-total">
+                    <td><strong>Net Cash from Investing Activities</strong></td>
+                    <td class="text-end amount"><strong>{{ amt(investing_cash) }}</strong></td>
+                </tr>
+            </tbody>
+
+            <!-- ═══ FINANCING ACTIVITIES ═══ -->
+            <tbody>
+                <tr class="section-header"><td colspan="2"><strong>3. Cash Flow from Financing Activities</strong></td></tr>
+                {% if financing_items %}
+                {% for item in financing_items %}
+                <tr class="indent-1">
+                    <td>{{ item.label }}</td>
+                    <td class="text-end amount">{{ amt(item.amount) }}</td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr class="indent-1"><td colspan="2" class="text-muted fst-italic">No financing activity this period</td></tr>
+                {% endif %}
+                <tr class="section-total">
+                    <td><strong>Net Cash from Financing Activities</strong></td>
+                    <td class="text-end amount"><strong>{{ amt(financing_cash) }}</strong></td>
+                </tr>
+            </tbody>
+
+            <!-- ═══ NET CHANGE & CLOSING ═══ -->
+            <tbody>
+                <tr class="section-header"><td colspan="2"><strong>4. Net Change in Cash</strong></td></tr>
+                <tr class="indent-1">
+                    <td>Net Cash from Operating</td>
+                    <td class="text-end amount">{{ amt(operating_cash) }}</td>
+                </tr>
+                <tr class="indent-1">
+                    <td>Net Cash from Investing</td>
+                    <td class="text-end amount">{{ amt(investing_cash) }}</td>
+                </tr>
+                <tr class="indent-1">
+                    <td>Net Cash from Financing</td>
+                    <td class="text-end amount">{{ amt(financing_cash) }}</td>
+                </tr>
+                <tr class="section-total">
+                    <td><strong>Net Increase / (Decrease) in Cash</strong></td>
+                    <td class="text-end amount"><strong>{{ amt(net_change) }}</strong></td>
+                </tr>
+            </tbody>
+
+            <tbody>
+                <tr class="indent-1">
+                    <td>Opening Cash Balance</td>
+                    <td class="text-end amount">{{ amt(opening_cash) }}</td>
+                </tr>
+                <tr class="grand-total">
+                    <td><strong>Closing Cash Balance</strong></td>
+                    <td class="text-end amount"><strong>{{ amt(closing_cash) }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

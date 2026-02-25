@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}System Admin — KH Accounting Software{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <style>
+        :root {
+            --admin-bg: #0f172a;
+            --admin-surface: #1e293b;
+            --admin-surface2: #334155;
+            --admin-border: #334155;
+            --admin-text: #e2e8f0;
+            --admin-text-muted: #94a3b8;
+            --admin-accent: #6366f1;
+            --admin-accent-hover: #818cf8;
+            --admin-sidebar-w: 260px;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--admin-bg);
+            color: var(--admin-text);
+            min-height: 100vh;
+        }
+
+        /* ─── SIDEBAR ─── */
+        .admin-sidebar {
+            position: fixed; top:0; left:0; bottom:0;
+            width: var(--admin-sidebar-w);
+            background: var(--admin-surface);
+            border-right: 1px solid var(--admin-border);
+            display: flex; flex-direction: column;
+            z-index: 1040;
+            transition: transform .25s;
+        }
+        .admin-sidebar-header {
+            padding: 1.25rem 1.25rem .75rem;
+            border-bottom: 1px solid var(--admin-border);
+        }
+        .admin-brand { display:flex; align-items:center; gap:12px; text-decoration:none; }
+        .admin-monogram {
+            width:40px; height:40px; border-radius:10px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            display:flex; align-items:center; justify-content:center;
+            font-weight:900; font-size:.9rem; color:#fff; letter-spacing:1px;
+            box-shadow: 0 2px 10px rgba(99,102,241,.4); flex-shrink:0;
+        }
+        .admin-brand-text { display:flex; flex-direction:column; line-height:1.2; }
+        .admin-brand-name { font-size:1rem; font-weight:700; color:#fff; }
+        .admin-brand-edition { font-size:.55rem; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--admin-accent); }
+
+        .admin-sidebar-nav { flex:1; overflow-y:auto; padding:.75rem 0; }
+        .admin-nav-section {
+            font-size:.6rem; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+            color:var(--admin-text-muted); padding:.75rem 1.25rem .35rem; margin-top:.5rem;
+        }
+        .admin-nav-link {
+            display:flex; align-items:center; gap:10px;
+            padding:.6rem 1.25rem; color:var(--admin-text-muted);
+            text-decoration:none; font-size:.85rem; font-weight:500;
+            border-left:3px solid transparent; transition:all .15s;
+        }
+        .admin-nav-link:hover { color:#fff; background:rgba(255,255,255,.04); }
+        .admin-nav-link.active {
+            color:var(--admin-accent-hover); background:rgba(99,102,241,.08);
+            border-left-color:var(--admin-accent);
+        }
+        .admin-nav-link i { font-size:1.05rem; width:20px; text-align:center; }
+        .admin-nav-link .badge {
+            margin-left:auto; font-size:.65rem; padding:2px 7px; border-radius:10px;
+        }
+
+        .admin-sidebar-footer {
+            padding:1rem 1.25rem; border-top:1px solid var(--admin-border);
+        }
+        .admin-user-box { display:flex; align-items:center; gap:10px; }
+        .admin-avatar {
+            width:34px; height:34px; border-radius:8px;
+            background:linear-gradient(135deg,#6366f1,#8b5cf6);
+            display:flex; align-items:center; justify-content:center;
+            font-weight:700; font-size:.7rem; color:#fff; flex-shrink:0;
+        }
+        .admin-user-info { flex:1; min-width:0; }
+        .admin-user-name { font-size:.8rem; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .admin-user-role { font-size:.65rem; color:var(--admin-text-muted); }
+
+        /* ─── MAIN ─── */
+        .admin-main {
+            margin-left: var(--admin-sidebar-w);
+            min-height: 100vh;
+        }
+        .admin-topbar {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:.75rem 1.5rem; background:var(--admin-surface);
+            border-bottom:1px solid var(--admin-border);
+            position:sticky; top:0; z-index:1020;
+        }
+        .admin-topbar .toggle-btn { display:none; background:none; border:none; color:var(--admin-text); font-size:1.25rem; }
+        .admin-page { padding:1.5rem; }
+
+        /* ─── CARDS ─── */
+        .admin-card {
+            background:var(--admin-surface); border:1px solid var(--admin-border);
+            border-radius:12px; overflow:hidden;
+        }
+        .admin-card .card-header { background:transparent; border-bottom:1px solid var(--admin-border); color:#fff; }
+        .admin-card .card-body { color:var(--admin-text); }
+        .admin-card .table { color:var(--admin-text); --bs-table-bg:transparent; }
+        .admin-card .table thead th { color:var(--admin-text-muted); font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.5px; border-color:var(--admin-border); }
+        .admin-card .table td { border-color:var(--admin-border); vertical-align:middle; }
+        .admin-card .table tbody tr:hover { background:rgba(255,255,255,.02); }
+
+        .admin-stat-card {
+            background:var(--admin-surface); border:1px solid var(--admin-border);
+            border-radius:12px; padding:1.25rem; text-align:center;
+        }
+        .admin-stat-card .stat-value { font-size:1.75rem; font-weight:700; }
+        .admin-stat-card .stat-label { font-size:.75rem; color:var(--admin-text-muted); margin-top:.15rem; }
+
+        /* ─── FORMS in admin ─── */
+        .admin-card .form-control, .admin-card .form-select {
+            background:var(--admin-bg); border-color:var(--admin-border); color:var(--admin-text);
+        }
+        .admin-card .form-control:focus, .admin-card .form-select:focus {
+            background:var(--admin-bg); border-color:var(--admin-accent); color:var(--admin-text);
+            box-shadow:0 0 0 3px rgba(99,102,241,.2);
+        }
+        .admin-card .form-control::placeholder { color:var(--admin-text-muted); }
+        .admin-card .form-label { color:var(--admin-text-muted); font-size:.8rem; font-weight:500; }
+        .admin-card .form-text { color:var(--admin-text-muted); }
+
+        /* ─── TOAST FLASH ─── */
+        .admin-toast-container { position:fixed; top:70px; right:1.5rem; z-index:1090; display:flex; flex-direction:column; gap:.5rem; }
+        .admin-toast {
+            padding:.6rem 1rem; border-radius:8px; font-size:.85rem; font-weight:500;
+            animation:slideIn .3s ease; display:flex; align-items:center; gap:.5rem; min-width:280px;
+        }
+        .admin-toast.success { background:rgba(34,197,94,.15); color:#4ade80; border:1px solid rgba(34,197,94,.2); }
+        .admin-toast.danger { background:rgba(239,68,68,.15); color:#f87171; border:1px solid rgba(239,68,68,.2); }
+        .admin-toast.warning { background:rgba(245,158,11,.15); color:#fbbf24; border:1px solid rgba(245,158,11,.2); }
+        .admin-toast.info { background:rgba(59,130,246,.15); color:#60a5fa; border:1px solid rgba(59,130,246,.2); }
+        @keyframes slideIn { from{opacity:0;transform:translateX(30px);} to{opacity:1;transform:translateX(0);} }
+
+        /* ─── MODAL overrides ─── */
+        .modal-content { background:var(--admin-surface); color:var(--admin-text); border:1px solid var(--admin-border); }
+        .modal-header { border-color:var(--admin-border); }
+        .modal-footer { border-color:var(--admin-border); }
+        .modal-content .form-control { background:var(--admin-bg); border-color:var(--admin-border); color:var(--admin-text); }
+        .modal-content .form-control:focus { border-color:var(--admin-accent); box-shadow:0 0 0 3px rgba(99,102,241,.2); }
+        .modal-content .form-label { color:var(--admin-text-muted); }
+        .modal-content .text-muted { color:var(--admin-text-muted) !important; }
+        .modal-content .form-text { color:var(--admin-text-muted); }
+        .btn-close { filter:invert(1) grayscale(100%) brightness(200%); }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width:991px) {
+            .admin-sidebar { transform:translateX(-100%); }
+            .admin-sidebar.open { transform:translateX(0); }
+            .admin-main { margin-left:0; }
+            .admin-topbar .toggle-btn { display:block; }
+            .admin-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1035; display:none; }
+            .admin-overlay.show { display:block; }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Admin Sidebar -->
+    <aside class="admin-sidebar" id="adminSidebar">
+        <div class="admin-sidebar-header">
+            <a href="{{ url_for('admin.index') }}" class="admin-brand">
+                <div class="admin-monogram">SA</div>
+                <div class="admin-brand-text">
+                    <span class="admin-brand-name">System Admin</span>
+                    <span class="admin-brand-edition">Control Panel</span>
+                </div>
+            </a>
+        </div>
+        <nav class="admin-sidebar-nav">
+            <div class="admin-nav-section">Overview</div>
+            <a href="{{ url_for('admin.index') }}" class="admin-nav-link {% if request.endpoint == 'admin.index' %}active{% endif %}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+
+            <div class="admin-nav-section">User Management</div>
+            <a href="{{ url_for('admin.pending_registrations') }}" class="admin-nav-link {% if request.endpoint == 'admin.pending_registrations' %}active{% endif %}">
+                <i class="bi bi-person-check"></i> Pending Approvals
+                {% set _pending = pending_count() %}
+                {% if _pending > 0 %}<span class="badge bg-warning text-dark">{{ _pending }}</span>{% endif %}
+            </a>
+            <a href="{{ url_for('admin.users_list') }}" class="admin-nav-link {% if request.endpoint in ('admin.users_list','admin.user_detail') %}active{% endif %}">
+                <i class="bi bi-people"></i> All Users
+            </a>
+
+            <div class="admin-nav-section">Communications</div>
+            <a href="{{ url_for('admin.announcements') }}" class="admin-nav-link {% if request.endpoint in ('admin.announcements',) %}active{% endif %}">
+                <i class="bi bi-megaphone"></i> Announcements
+            </a>
+
+            <div class="admin-nav-section">Support</div>
+            <a href="{{ url_for('admin.chat_list') }}" class="admin-nav-link {% if request.endpoint in ('admin.chat_list','admin.chat_room') %}active{% endif %}">
+                <i class="bi bi-chat-dots"></i> Live Chat
+                {% set _unread = unread_chat_count() %}
+                {% if _unread > 0 %}<span class="badge bg-info">{{ _unread }}</span>{% endif %}
+            </a>
+        </nav>
+        <div class="admin-sidebar-footer">
+            <div class="admin-user-box">
+                <div class="admin-avatar">{{ current_user.full_name[:2]|upper }}</div>
+                <div class="admin-user-info">
+                    <div class="admin-user-name">{{ current_user.full_name }}</div>
+                    <div class="admin-user-role">System Owner</div>
+                </div>
+                <a href="{{ url_for('admin.logout') }}" class="text-danger" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Overlay (mobile) -->
+    <div class="admin-overlay" id="adminOverlay"></div>
+
+    <!-- Main -->
+    <div class="admin-main">
+        <div class="admin-topbar">
+            <div class="d-flex align-items-center gap-2">
+                <button class="toggle-btn" id="adminToggle"><i class="bi bi-list"></i></button>
+                <span class="fw-semibold" style="font-size:.85rem;">{% block page_title %}Admin Panel{% endblock %}</span>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="badge rounded-pill" style="background:rgba(99,102,241,.15);color:#a5b4fc;font-size:.7rem;">
+                    <i class="bi bi-shield-lock-fill me-1"></i>Super Admin
+                </span>
+                <a href="{{ url_for('admin.logout') }}" class="btn btn-sm btn-outline-danger" style="font-size:.75rem;padding:3px 10px;">
+                    <i class="bi bi-box-arrow-right me-1"></i>Logout
+                </a>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        <div class="admin-toast-container" id="adminToasts">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="admin-toast {{ category if category != 'message' else 'info' }}" data-auto-dismiss="5000">
+                            <i class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' %}bi-exclamation-triangle-fill{% elif category == 'warning' %}bi-exclamation-circle-fill{% else %}bi-info-circle-fill{% endif %}"></i>
+                            <span>{{ message }}</span>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="admin-page">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    (function(){
+        // Sidebar toggle (mobile)
+        var toggle = document.getElementById('adminToggle');
+        var sidebar = document.getElementById('adminSidebar');
+        var overlay = document.getElementById('adminOverlay');
+        if(toggle){
+            toggle.addEventListener('click',function(){ sidebar.classList.toggle('open'); overlay.classList.toggle('show'); });
+        }
+        if(overlay){
+            overlay.addEventListener('click',function(){ sidebar.classList.remove('open'); overlay.classList.remove('show'); });
+        }
+        // Auto dismiss toasts
+        document.querySelectorAll('.admin-toast[data-auto-dismiss]').forEach(function(t){
+            var ms = parseInt(t.dataset.autoDismiss) || 5000;
+            setTimeout(function(){ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(function(){ t.remove(); },300); }, ms);
+        });
+        // CSRF for forms
+        var token = document.querySelector('meta[name="csrf-token"]');
+        if(token){
+            var val = token.getAttribute('content');
+            document.addEventListener('DOMContentLoaded', function(){
+                document.querySelectorAll('form').forEach(function(form){
+                    if(form.method && form.method.toUpperCase() === 'GET') return;
+                    if(form.querySelector('input[name="csrf_token"]')) return;
+                    var input = document.createElement('input');
+                    input.type='hidden'; input.name='csrf_token'; input.value=val;
+                    form.appendChild(input);
+                });
+            });
+            var origFetch = window.fetch;
+            window.fetch = function(url, opts){
+                opts = opts || {};
+                if(opts.method && opts.method.toUpperCase() !== 'GET'){
+                    opts.headers = opts.headers || {};
+                    opts.headers['X-CSRFToken'] = val;
+                }
+                return origFetch(url, opts);
+            };
+        }
+    })();
+    </script>
+
+    <!-- ═══ GLOBAL CONFIRM MODAL ═══ -->
+    <div class="modal fade" id="adminConfirmModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+            <div class="modal-content" style="background:var(--admin-surface);border-radius:18px;border:1px solid var(--admin-border);box-shadow:0 25px 60px rgba(0,0,0,.55);overflow:hidden;">
+                <div id="acm-top-accent" style="height:4px;width:100%;"></div>
+                <div class="modal-body text-center" style="padding:2rem 2rem 1.5rem;">
+                    <div id="acm-icon-wrap" class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:56px;height:56px;border-radius:16px;"></div>
+                    <h6 id="acm-title" class="fw-bold mb-2" style="font-size:1rem;color:#fff;"></h6>
+                    <p id="acm-message" style="font-size:.82rem;color:var(--admin-text-muted);line-height:1.55;margin-bottom:0;"></p>
+                </div>
+                <div class="modal-footer justify-content-center" style="border-top:1px solid var(--admin-border);padding:1rem 2rem;gap:10px;">
+                    <button type="button" id="acm-cancel" class="btn" data-bs-dismiss="modal" style="background:var(--admin-surface2);color:var(--admin-text-muted);border:1px solid var(--admin-border);border-radius:10px;font-size:.8rem;font-weight:600;padding:.55rem 1.5rem;min-width:100px;">Cancel</button>
+                    <button type="button" id="acm-confirm" class="btn" style="border:none;border-radius:10px;font-size:.8rem;font-weight:700;padding:.55rem 1.5rem;min-width:100px;"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    (function(){
+        var modal = document.getElementById('adminConfirmModal');
+        if(!modal) return;
+        var bsModal = null;
+        var confirmBtn = document.getElementById('acm-confirm');
+        var pendingForm = null;
+
+        var themes = {
+            success: { accent:'linear-gradient(90deg,#22c55e,#4ade80)', iconBg:'rgba(34,197,94,.12)', iconColor:'#4ade80', icon:'bi-check-circle-fill', btnBg:'linear-gradient(135deg,#059669,#22c55e)', btnColor:'#fff' },
+            danger:  { accent:'linear-gradient(90deg,#ef4444,#f87171)', iconBg:'rgba(239,68,68,.1)',  iconColor:'#f87171', icon:'bi-exclamation-triangle-fill', btnBg:'linear-gradient(135deg,#dc2626,#ef4444)', btnColor:'#fff' },
+            warning: { accent:'linear-gradient(90deg,#f59e0b,#fbbf24)', iconBg:'rgba(245,158,11,.12)', iconColor:'#fbbf24', icon:'bi-exclamation-circle-fill', btnBg:'linear-gradient(135deg,#d97706,#f59e0b)', btnColor:'#000' },
+            info:    { accent:'linear-gradient(90deg,#6366f1,#818cf8)', iconBg:'rgba(99,102,241,.12)', iconColor:'#818cf8', icon:'bi-info-circle-fill', btnBg:'linear-gradient(135deg,#4f46e5,#6366f1)', btnColor:'#fff' }
+        };
+
+        window.adminConfirm = function(opts) {
+            var t = themes[opts.theme || 'info'] || themes.info;
+            document.getElementById('acm-top-accent').style.background = t.accent;
+            var iconWrap = document.getElementById('acm-icon-wrap');
+            iconWrap.style.background = t.iconBg;
+            iconWrap.innerHTML = '<i class="bi '+t.icon+'" style="font-size:1.5rem;color:'+t.iconColor+';"></i>';
+            document.getElementById('acm-title').textContent = opts.title || 'Confirm Action';
+            document.getElementById('acm-message').innerHTML = opts.message || 'Are you sure?';
+            confirmBtn.style.background = t.btnBg;
+            confirmBtn.style.color = t.btnColor;
+            confirmBtn.style.boxShadow = '0 4px 14px ' + t.iconColor + '33';
+            confirmBtn.innerHTML = '<i class="bi '+(opts.confirmIcon || t.icon)+' me-1"></i>' + (opts.confirmText || 'Confirm');
+            pendingForm = opts.form || null;
+            if(!bsModal) bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+        };
+
+        confirmBtn.addEventListener('click', function(){
+            if(pendingForm) {
+                pendingForm.submit();
+                pendingForm = null;
+            }
+            if(bsModal) bsModal.hide();
+        });
+    })();
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

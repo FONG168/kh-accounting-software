@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Credit Notes{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-receipt-cutoff me-2"></i>Credit Notes</h2>
+    <a href="{{ url_for('credit_notes.create') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>New Credit Note</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>CN #</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Invoice</th>
+                    <th>Reason</th>
+                    <th class="text-end">Total</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cn in credit_notes %}
+                <tr>
+                    <td><a href="{{ url_for('credit_notes.view', id=cn.id) }}">{{ cn.credit_note_number }}</a></td>
+                    <td>{{ cn.date.strftime('%b %d, %Y') }}</td>
+                    <td>{{ cn.customer.name }}</td>
+                    <td>{{ cn.invoice.invoice_number if cn.invoice else '—' }}</td>
+                    <td>{{ cn.reason | truncate(40) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(cn.total) }}</td>
+                    <td>
+                        {% if cn.status == 'applied' %}
+                        <span class="badge bg-success">Applied</span>
+                        {% elif cn.status == 'void' %}
+                        <span class="badge bg-secondary">Void</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">Draft</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('credit_notes.view', id=cn.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% if not credit_notes %}
+        <div class="text-center text-muted py-5">
+            <p>No credit notes found.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if pagination and pagination.pages > 1 %}
+<nav class="mt-3">
+    <ul class="pagination justify-content-center">
+        {% if pagination.has_prev %}
+        <li class="page-item"><a class="page-link" href="?page={{ pagination.prev_num }}">Previous</a></li>
+        {% endif %}
+        {% for p in pagination.iter_pages() %}
+        {% if p %}
+        <li class="page-item {{ 'active' if p == pagination.page }}"><a class="page-link" href="?page={{ p }}">{{ p }}</a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+        {% endfor %}
+        {% if pagination.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ pagination.next_num }}">Next</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

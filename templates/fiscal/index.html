@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Fiscal Periods{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-calendar-check me-2"></i>Fiscal Periods</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('fiscal.year_end') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-calendar-event me-1"></i>Year-End Closing</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Period</th>
+                    <th>Year</th>
+                    <th>Status</th>
+                    <th>Locked By</th>
+                    <th>Locked At</th>
+                    <th>Notes</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in periods %}
+                <tr class="{{ 'table-warning' if p.is_locked }}">
+                    <td><strong>{{ p.month_name }}</strong></td>
+                    <td>{{ p.year }}</td>
+                    <td>
+                        {% if p.is_locked %}
+                        <span class="badge bg-danger"><i class="bi bi-lock-fill me-1"></i>Locked</span>
+                        {% else %}
+                        <span class="badge bg-success"><i class="bi bi-unlock-fill me-1"></i>Open</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p.locked_by.full_name if p.locked_by else '' }}</td>
+                    <td>{{ p.locked_at.strftime('%b %d, %Y %H:%M') if p.locked_at else '' }}</td>
+                    <td>{{ p.notes }}</td>
+                    <td class="text-end">
+                        {% if p.is_locked %}
+                        <form method="POST" action="{{ url_for('fiscal.unlock', id=p.id) }}" class="d-inline"
+                              onsubmit="return confirm('Unlock {{ p.month_name }} {{ p.year }}? This will allow modifications to transactions in this period.')">
+                            <button class="btn btn-sm btn-outline-warning"><i class="bi bi-unlock me-1"></i>Unlock</button>
+                        </form>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('fiscal.lock', id=p.id) }}" class="d-inline"
+                              onsubmit="return confirm('Lock {{ p.month_name }} {{ p.year }}? No transactions can be created or modified in this period.')">
+                            <input type="hidden" name="notes" value="">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-lock me-1"></i>Lock</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

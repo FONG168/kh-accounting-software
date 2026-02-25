@@ -1,0 +1,242 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Announcements — System Admin{% endblock %}
+{% block page_title %}Announcements{% endblock %}
+
+{% block extra_css %}
+<style>
+@keyframes fadeInUp { from{opacity:0;transform:translateY(16px);} to{opacity:1;transform:translateY(0);} }
+.ann-fadein { animation: fadeInUp .4s ease both; }
+
+.ann-card {
+    background:var(--admin-surface);
+    border:1px solid var(--admin-border);
+    border-radius:16px;
+    overflow:hidden;
+    transition:all .2s ease;
+}
+.ann-card:hover { border-color:rgba(255,255,255,.06); }
+
+.ann-type-info { border-left:4px solid #60a5fa; }
+.ann-type-warning { border-left:4px solid #fbbf24; }
+.ann-type-success { border-left:4px solid #4ade80; }
+.ann-type-danger { border-left:4px solid #f87171; }
+
+.ann-type-dot {
+    width:10px; height:10px; border-radius:50%; flex-shrink:0;
+}
+
+.ann-compose-card {
+    background:var(--admin-surface);
+    border:1px solid var(--admin-border);
+    border-radius:16px;
+    overflow:hidden;
+}
+
+.ann-input {
+    width:100%; padding:.65rem 1rem;
+    background:var(--admin-bg); border:1px solid var(--admin-border);
+    border-radius:10px; color:var(--admin-text);
+    font-size:.85rem; font-family:inherit;
+    transition:all .2s ease;
+}
+.ann-input:focus {
+    outline:none; border-color:var(--admin-accent);
+    box-shadow:0 0 0 3px rgba(99,102,241,.15);
+}
+.ann-input::placeholder { color:#475569; }
+
+.ann-label {
+    font-size:.72rem; font-weight:600; text-transform:uppercase;
+    letter-spacing:.5px; color:var(--admin-text-muted);
+    margin-bottom:6px; display:block;
+}
+
+.ann-type-btn {
+    padding:6px 14px; border-radius:8px;
+    font-size:.78rem; font-weight:600;
+    cursor:pointer; transition:all .2s;
+    border:2px solid var(--admin-border);
+    background:transparent;
+    display:inline-flex; align-items:center; gap:6px;
+}
+.ann-type-btn:hover { transform:translateY(-1px); }
+.ann-type-btn.active { box-shadow:0 2px 8px rgba(0,0,0,.2); }
+.ann-type-btn[data-type="info"] { color:#60a5fa; }
+.ann-type-btn[data-type="info"].active { border-color:#60a5fa; background:rgba(59,130,246,.08); }
+.ann-type-btn[data-type="warning"] { color:#fbbf24; }
+.ann-type-btn[data-type="warning"].active { border-color:#fbbf24; background:rgba(245,158,11,.08); }
+.ann-type-btn[data-type="success"] { color:#4ade80; }
+.ann-type-btn[data-type="success"].active { border-color:#4ade80; background:rgba(34,197,94,.08); }
+.ann-type-btn[data-type="danger"] { color:#f87171; }
+.ann-type-btn[data-type="danger"].active { border-color:#f87171; background:rgba(239,68,68,.08); }
+
+.ann-counter {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:4px 12px; border-radius:8px;
+    font-size:.72rem; font-weight:600;
+    background:rgba(99,102,241,.08); color:#a5b4fc;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4 ann-fadein">
+    <div>
+        <h3 class="fw-bold mb-1"><i class="bi bi-megaphone me-2" style="color:var(--admin-accent);"></i>Announcements</h3>
+        <p style="color:var(--admin-text-muted);font-size:.85rem;" class="mb-0">Broadcast messages to all users</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="ann-counter"><i class="bi bi-broadcast"></i> {{ announcements|selectattr('is_active')|list|length }} Active</span>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left: Compose -->
+    <div class="col-lg-5">
+        <div class="ann-compose-card ann-fadein" style="animation-delay:.05s;">
+            <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--admin-border);">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:32px;height:32px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-pencil-square" style="color:#818cf8;font-size:.85rem;"></i>
+                    </div>
+                    <span style="font-size:.88rem;font-weight:700;color:#fff;">New Announcement</span>
+                </div>
+            </div>
+            <form method="POST" action="{{ url_for('admin.create_announcement') }}" style="padding:1.25rem;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="mb-3">
+                    <label class="ann-label">Title</label>
+                    <input type="text" name="title" class="ann-input" placeholder="Announcement title..." required maxlength="200">
+                </div>
+
+                <div class="mb-3">
+                    <label class="ann-label">Message</label>
+                    <textarea name="message" class="ann-input" rows="4" placeholder="Write your announcement here..." required style="resize:vertical;"></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="ann-label">Type</label>
+                    <input type="hidden" name="type" id="annTypeInput" value="info">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="ann-type-btn active" data-type="info" onclick="selectAnnType('info', this)">
+                            <i class="bi bi-info-circle-fill"></i> Info
+                        </button>
+                        <button type="button" class="ann-type-btn" data-type="warning" onclick="selectAnnType('warning', this)">
+                            <i class="bi bi-exclamation-triangle-fill"></i> Warning
+                        </button>
+                        <button type="button" class="ann-type-btn" data-type="success" onclick="selectAnnType('success', this)">
+                            <i class="bi bi-check-circle-fill"></i> Success
+                        </button>
+                        <button type="button" class="ann-type-btn" data-type="danger" onclick="selectAnnType('danger', this)">
+                            <i class="bi bi-x-circle-fill"></i> Urgent
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <label class="ann-label">Expires (optional)</label>
+                        <input type="date" name="expires_at" class="ann-input" style="cursor:pointer;">
+                    </div>
+                    <div class="col-6">
+                        <label class="ann-label">Options</label>
+                        <label class="d-flex align-items-center gap-2" style="cursor:pointer;padding:.65rem 1rem;background:var(--admin-bg);border:1px solid var(--admin-border);border-radius:10px;">
+                            <input type="checkbox" name="is_pinned" style="accent-color:#6366f1;width:16px;height:16px;cursor:pointer;">
+                            <span style="font-size:.82rem;color:var(--admin-text);">Pin to top</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn w-100" style="background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;font-weight:700;border:none;border-radius:10px;padding:.7rem;font-size:.85rem;box-shadow:0 4px 16px rgba(99,102,241,.3);">
+                    <i class="bi bi-send-fill me-1"></i> Publish Announcement
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right: List -->
+    <div class="col-lg-7">
+        {% if announcements %}
+        <div class="d-flex flex-column gap-3">
+            {% for ann in announcements %}
+            <div class="ann-card ann-type-{{ ann.type }} ann-fadein" style="animation-delay:{{ loop.index * 0.05 }}s;{% if not ann.is_active %}opacity:.5;{% endif %}">
+                <div style="padding:1.15rem 1.4rem;">
+                    <div class="d-flex align-items-start justify-content-between gap-3 mb-2">
+                        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0;">
+                            {% if ann.is_pinned %}
+                            <i class="bi bi-pin-fill" style="color:#fbbf24;font-size:.85rem;flex-shrink:0;" title="Pinned"></i>
+                            {% endif %}
+                            <h6 style="margin:0;font-weight:700;font-size:.92rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ ann.title }}</h6>
+                        </div>
+                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                            {% if ann.is_active %}
+                            <span class="badge" style="background:rgba(34,197,94,.1);color:#4ade80;font-size:.6rem;font-weight:600;">LIVE</span>
+                            {% else %}
+                            <span class="badge" style="background:rgba(148,163,184,.1);color:#94a3b8;font-size:.6rem;font-weight:600;">OFF</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <p style="font-size:.82rem;color:#94a3b8;line-height:1.6;margin-bottom:.75rem;">{{ ann.message }}</p>
+
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-3" style="font-size:.7rem;color:#64748b;">
+                            <span><i class="bi bi-clock me-1"></i>{{ ann.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
+                            {% if ann.expires_at %}
+                            <span><i class="bi bi-calendar-x me-1"></i>Expires {{ ann.expires_at.strftime('%b %d, %Y') }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-1">
+                            <!-- Toggle Active -->
+                            <form method="POST" action="{{ url_for('admin.toggle_announcement', ann_id=ann.id) }}" class="d-inline" id="toggleForm{{ ann.id }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="button" class="btn btn-sm" title="{{ 'Deactivate' if ann.is_active else 'Activate' }}" style="background:{% if ann.is_active %}rgba(239,68,68,.08){% else %}rgba(34,197,94,.08){% endif %};color:{% if ann.is_active %}#f87171{% else %}#4ade80{% endif %};border:1px solid {% if ann.is_active %}rgba(239,68,68,.15){% else %}rgba(34,197,94,.15){% endif %};border-radius:8px;font-size:.72rem;padding:3px 10px;"
+                                    onclick="adminConfirm({theme:'{% if ann.is_active %}warning{% else %}success{% endif %}', title:'{% if ann.is_active %}Deactivate{% else %}Activate{% endif %} Announcement', message:'{% if ann.is_active %}Hide{% else %}Show{% endif %} <strong>{{ ann.title }}</strong> to all users?', confirmText:'{% if ann.is_active %}Deactivate{% else %}Activate{% endif %}', confirmIcon:'{% if ann.is_active %}bi-eye-slash{% else %}bi-eye{% endif %}', form:document.getElementById('toggleForm{{ ann.id }}')})">
+                                    <i class="bi {% if ann.is_active %}bi-eye-slash{% else %}bi-eye{% endif %}"></i>
+                                </button>
+                            </form>
+                            <!-- Pin / Unpin -->
+                            <form method="POST" action="{{ url_for('admin.pin_announcement', ann_id=ann.id) }}" class="d-inline" id="pinForm{{ ann.id }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="button" class="btn btn-sm" title="{{ 'Unpin' if ann.is_pinned else 'Pin' }}" style="background:rgba(245,158,11,.08);color:#fbbf24;border:1px solid rgba(245,158,11,.15);border-radius:8px;font-size:.72rem;padding:3px 10px;"
+                                    onclick="adminConfirm({theme:'info', title:'{{ 'Unpin' if ann.is_pinned else 'Pin' }} Announcement', message:'{{ 'Remove pin from' if ann.is_pinned else 'Pin' }} <strong>{{ ann.title }}</strong>?', confirmText:'{{ 'Unpin' if ann.is_pinned else 'Pin' }}', confirmIcon:'bi-pin-fill', form:document.getElementById('pinForm{{ ann.id }}')})">
+                                    <i class="bi {% if ann.is_pinned %}bi-pin-angle{% else %}bi-pin-fill{% endif %}"></i>
+                                </button>
+                            </form>
+                            <!-- Delete -->
+                            <form method="POST" action="{{ url_for('admin.delete_announcement', ann_id=ann.id) }}" class="d-inline" id="delAnnForm{{ ann.id }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="button" class="btn btn-sm" title="Delete" style="background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.15);border-radius:8px;font-size:.72rem;padding:3px 10px;"
+                                    onclick="adminConfirm({theme:'danger', title:'Delete Announcement', message:'Permanently delete <strong style=color:#f87171>{{ ann.title }}</strong>?', confirmText:'Delete', confirmIcon:'bi-trash3-fill', form:document.getElementById('delAnnForm{{ ann.id }}')})">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="ann-card ann-fadein" style="animation-delay:.1s;">
+            <div class="text-center py-5">
+                <div style="width:64px;height:64px;border-radius:16px;background:rgba(99,102,241,.08);display:flex;align-items:center;justify-content:center;margin:0 auto .75rem;">
+                    <i class="bi bi-megaphone" style="font-size:1.5rem;color:#818cf8;"></i>
+                </div>
+                <h6 class="fw-bold" style="color:#fff;">No Announcements Yet</h6>
+                <p style="font-size:.82rem;color:#94a3b8;max-width:300px;margin:0 auto;">Create your first announcement to broadcast messages to all users.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function selectAnnType(type, btn) {
+    document.getElementById('annTypeInput').value = type;
+    document.querySelectorAll('.ann-type-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+</script>
+{% endblock %}

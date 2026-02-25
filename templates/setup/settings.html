@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+{% block title %}Company Settings — KH Accounting Software Enterprise{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-gear me-2"></i>Company Settings</h2>
+</div>
+
+<!-- ─── Tab Navigation ─── -->
+<ul class="nav nav-tabs mb-4 flex-nowrap overflow-auto" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active text-nowrap" data-bs-toggle="tab" data-bs-target="#tab-general" type="button">
+            <i class="bi bi-building me-1"></i>General
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link text-nowrap" data-bs-toggle="tab" data-bs-target="#tab-contact" type="button">
+            <i class="bi bi-telephone me-1"></i>Contact
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link text-nowrap" data-bs-toggle="tab" data-bs-target="#tab-address" type="button">
+            <i class="bi bi-geo-alt me-1"></i>Address
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link text-nowrap" data-bs-toggle="tab" data-bs-target="#tab-system" type="button">
+            <i class="bi bi-sliders me-1"></i>System
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+
+    <!-- ══════════ TAB 1: GENERAL / COMPANY PROFILE ══════════ -->
+    <div class="tab-pane fade show active" id="tab-general" role="tabpanel">
+        <div class="row g-4">
+            <!-- Company Identity -->
+            <div class="col-lg-7">
+                <div class="card">
+                    <div class="card-header fw-semibold"><i class="bi bi-building me-1"></i>Company Profile</div>
+                    <div class="card-body">
+                        <form method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="_section" value="general">
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label">Company Name <span class="text-danger">*</span></label>
+                                    <input type="text" name="company_name" class="form-control" value="{{ company.company_name }}" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Currency Symbol</label>
+                                    <input type="text" name="currency_symbol" class="form-control" maxlength="5" value="{{ company.currency_symbol }}">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Tagline / Motto</label>
+                                    <input type="text" name="tagline" class="form-control" value="{{ company.tagline or '' }}" placeholder="e.g. Building dreams since 2010">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">About the Company</label>
+                                    <textarea name="description" class="form-control" rows="3" placeholder="Brief description of your business...">{{ company.description or '' }}</textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Business Registration No.</label>
+                                    <input type="text" name="registration_number" class="form-control" value="{{ company.registration_number or '' }}" placeholder="e.g. SSM / EIN / ABN">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Tax ID</label>
+                                    <input type="text" name="tax_id" class="form-control" value="{{ company.tax_id or '' }}" placeholder="e.g. GST / VAT / TIN number">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Date Founded</label>
+                                    <input type="date" name="founded_date" class="form-control" value="{{ company.founded_date.isoformat() if company.founded_date else '' }}">
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Profile</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Industry + Logo + Preview -->
+            <div class="col-lg-5">
+                <!-- Company Logo -->
+                <div class="card mb-4">
+                    <div class="card-header fw-semibold"><i class="bi bi-image me-1"></i>Company Logo</div>
+                    <div class="card-body">
+                        {% if company.logo %}
+                        <div class="text-center mb-3">
+                            <img src="{{ url_for('static', filename=company.logo) }}" alt="Company Logo"
+                                 style="max-height:100px; max-width:100%; object-fit:contain;"
+                                 class="rounded border p-2">
+                        </div>
+                        {% endif %}
+                        <form method="POST" enctype="multipart/form-data">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="_section" value="logo">
+                            <div class="mb-2">
+                                <input type="file" name="logo" class="form-control form-control-sm"
+                                       accept=".png,.jpg,.jpeg,.gif,.svg,.webp">
+                                <div class="form-text">PNG, JPG, SVG or WebP. Max 2 MB recommended.</div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-upload me-1"></i>Upload Logo</button>
+                                {% if company.logo %}
+                                <button type="submit" name="remove_logo" value="1" class="btn btn-sm btn-outline-danger"
+                                        onclick="return confirm('Remove the logo?')">
+                                    <i class="bi bi-trash me-1"></i>Remove
+                                </button>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header fw-semibold"><i class="bi bi-briefcase me-1"></i>Business Industry</div>
+                    <div class="card-body">
+                        {% if company.industry and industry_info %}
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="rounded-3 bg-primary bg-opacity-10 p-3 me-3">
+                                <i class="bi {{ industry_info.icon }} fs-2 text-primary"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold fs-5">{{ industry_info.name }}</div>
+                                <div class="text-muted small">{{ industry_info.desc }}</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No industry selected yet.</p>
+                        {% endif %}
+                        <a href="{{ url_for('setup.change_industry') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-arrow-repeat me-1"></i>{{ 'Change Industry' if company.industry else 'Select Industry' }}
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Company Overview Preview -->
+                <div class="card mt-4">
+                    <div class="card-header fw-semibold"><i class="bi bi-eye me-1"></i>Profile Preview</div>
+                    <div class="card-body">
+                        {% if company.logo %}
+                        <div class="mb-2">
+                            <img src="{{ url_for('static', filename=company.logo) }}" alt="Logo" style="max-height:48px; max-width:160px; object-fit:contain;">
+                        </div>
+                        {% endif %}
+                        <h5 class="mb-1">{{ company.company_name }}</h5>
+                        {% if company.tagline %}
+                        <p class="text-muted fst-italic mb-2">{{ company.tagline }}</p>
+                        {% endif %}
+                        {% if company.description %}
+                        <p class="small mb-2">{{ company.description }}</p>
+                        {% endif %}
+                        <div class="small text-muted">
+                            {% if company.registration_number %}
+                            <div><i class="bi bi-hash me-1"></i>Reg: {{ company.registration_number }}</div>
+                            {% endif %}
+                            {% if company.tax_id %}
+                            <div><i class="bi bi-receipt me-1"></i>Tax ID: {{ company.tax_id }}</div>
+                            {% endif %}
+                            {% if company.founded_date %}
+                            <div><i class="bi bi-calendar-event me-1"></i>Founded: {{ company.founded_date.strftime('%b %d, %Y') }}</div>
+                            {% endif %}
+                            {% if company.email %}
+                            <div><i class="bi bi-envelope me-1"></i>{{ company.email }}</div>
+                            {% endif %}
+                            {% if company.phone %}
+                            <div><i class="bi bi-telephone me-1"></i>{{ company.phone }}</div>
+                            {% endif %}
+                            {% if company.website %}
+                            <div><i class="bi bi-globe me-1"></i><a href="{{ company.website }}" target="_blank">{{ company.website }}</a></div>
+                            {% endif %}
+                            {% if company.address_line1 or company.city %}
+                            <div class="mt-1">
+                                <i class="bi bi-geo-alt me-1"></i>
+                                {{ company.address_line1 }}{% if company.address_line2 %}, {{ company.address_line2 }}{% endif %}{% if company.city %}, {{ company.city }}{% endif %}{% if company.state %}, {{ company.state }}{% endif %} {{ company.postal_code }} {{ company.country }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if not company.tagline and not company.email and not company.phone and not company.address_line1 %}
+                        <p class="text-muted small mb-0">Fill in your profile details to see a preview here.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════ TAB 2: CONTACT ══════════ -->
+    <div class="tab-pane fade" id="tab-contact" role="tabpanel">
+        <div class="row g-4">
+            <div class="col-lg-7">
+                <div class="card">
+                    <div class="card-header fw-semibold"><i class="bi bi-telephone me-1"></i>Contact Information</div>
+                    <div class="card-body">
+                        <form method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="_section" value="contact">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Business Email</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                        <input type="email" name="email" class="form-control" value="{{ company.email or '' }}" placeholder="info@company.com">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Phone Number</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                                        <input type="tel" name="phone" class="form-control" value="{{ company.phone or '' }}" placeholder="+60 12-345 6789">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Website</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-globe"></i></span>
+                                        <input type="url" name="website" class="form-control" value="{{ company.website or '' }}" placeholder="https://www.company.com">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Fax</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-printer"></i></span>
+                                        <input type="text" name="fax" class="form-control" value="{{ company.fax or '' }}" placeholder="Optional">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Contact Info</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card bg-light border-0">
+                    <div class="card-body">
+                        <h6><i class="bi bi-info-circle me-1"></i>Why add contact info?</h6>
+                        <p class="small text-muted mb-0">Your business contact details will appear on invoices, bills, and printed reports — making your documents look professional and giving clients a way to reach you.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════ TAB 3: ADDRESS ══════════ -->
+    <div class="tab-pane fade" id="tab-address" role="tabpanel">
+        <div class="row g-4">
+            <div class="col-lg-7">
+                <div class="card">
+                    <div class="card-header fw-semibold"><i class="bi bi-geo-alt me-1"></i>Business Address</div>
+                    <div class="card-body">
+                        <form method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="_section" value="address">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label">Address Line 1</label>
+                                    <input type="text" name="address_line1" class="form-control" value="{{ company.address_line1 or '' }}" placeholder="Street address, P.O. box">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Address Line 2</label>
+                                    <input type="text" name="address_line2" class="form-control" value="{{ company.address_line2 or '' }}" placeholder="Suite, unit, building, floor (optional)">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">City</label>
+                                    <input type="text" name="city" class="form-control" value="{{ company.city or '' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">State / Province</label>
+                                    <input type="text" name="state" class="form-control" value="{{ company.state or '' }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Postal Code</label>
+                                    <input type="text" name="postal_code" class="form-control" value="{{ company.postal_code or '' }}">
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Country</label>
+                                    <input type="text" name="country" class="form-control" value="{{ company.country or '' }}">
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Address</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card bg-light border-0">
+                    <div class="card-body">
+                        <h6><i class="bi bi-info-circle me-1"></i>Business address usage</h6>
+                        <p class="small text-muted mb-0">This address will appear on your invoices, bills, and official documents. Make sure it matches your registered business address for legal and tax purposes.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════ TAB 4: SYSTEM (Cloud Sync + Categories) ══════════ -->
+    <div class="tab-pane fade" id="tab-system" role="tabpanel">
+        <div class="row g-4">
+            <!-- Cloud Sync -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header fw-semibold"><i class="bi bi-cloud me-1"></i>Cloud Sync (Firebase)</div>
+                    <div class="card-body">
+                        {% if firebase_sync_enabled %}
+                        <div class="d-flex align-items-center mb-3">
+                            <span class="badge bg-success rounded-pill me-2"><i class="bi bi-cloud-check-fill"></i></span>
+                            <div>
+                                <div class="fw-bold text-success">Cloud Sync Active</div>
+                                <div class="text-muted small">Every transaction is automatically saved to Firebase.</div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <form method="POST" action="{{ url_for('setup.cloud_backup') }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-outline-primary" onclick="return confirm('Push all local data to Firebase? This will overwrite cloud data.')">
+                                    <i class="bi bi-cloud-upload me-1"></i>Full Backup
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('setup.cloud_restore') }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-outline-warning" onclick="return confirm('Restore from Firebase? This will REPLACE all local data.')">
+                                    <i class="bi bi-cloud-download me-1"></i>Restore from Cloud
+                                </button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <div class="d-flex align-items-center mb-3">
+                            <span class="badge bg-secondary rounded-pill me-2"><i class="bi bi-cloud-slash"></i></span>
+                            <div>
+                                <div class="fw-bold text-muted">Cloud Sync Disabled</div>
+                                <div class="text-muted small">Data is stored locally only (SQLite).</div>
+                            </div>
+                        </div>
+                        <div class="alert alert-light border mb-0">
+                            <div class="fw-semibold mb-1">How to enable:</div>
+                            <ol class="small mb-0 ps-3">
+                                <li>Create a Firebase project at <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a></li>
+                                <li>Go to <strong>Project Settings &rarr; Service Accounts &rarr; Generate New Private Key</strong></li>
+                                <li>Save the JSON file as <code>firebase-credentials.json</code> in the project root</li>
+                                <li>Restart the server</li>
+                            </ol>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manage Categories -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header fw-semibold"><i class="bi bi-tags me-1"></i>Manage Categories</div>
+                    <div class="card-body">
+                        <p class="text-muted mb-3">Add, edit, or remove product & service categories used across your system.</p>
+                        <a href="{{ url_for('categories.index') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-tags me-1"></i>Go to Categories
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,708 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Admin Dashboard — System Admin{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ─── DASHBOARD ANIMATIONS ─── */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes countPulse {
+    0%,100% { transform: scale(1); }
+    50%     { transform: scale(1.08); }
+}
+@keyframes liveDot {
+    0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52,211,153,.6); }
+    50%     { opacity: .7; box-shadow: 0 0 0 6px rgba(52,211,153,0); }
+}
+.dash-fadein { animation: fadeInUp .45s ease both; }
+.dash-fadein-1 { animation-delay: .05s; }
+.dash-fadein-2 { animation-delay: .10s; }
+.dash-fadein-3 { animation-delay: .15s; }
+.dash-fadein-4 { animation-delay: .20s; }
+.dash-fadein-5 { animation-delay: .25s; }
+.dash-fadein-6 { animation-delay: .30s; }
+
+/* ─── ENHANCED STAT CARDS ─── */
+.kpi-card {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    padding: 1.15rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all .2s ease;
+    position: relative;
+    overflow: hidden;
+}
+.kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 14px 14px 0 0;
+    opacity: .8;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,.2);
+    border-color: rgba(255,255,255,.08);
+}
+.kpi-card .kpi-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+.kpi-card .kpi-info { flex: 1; min-width: 0; }
+.kpi-card .kpi-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -.5px;
+}
+.kpi-card .kpi-label {
+    font-size: .72rem;
+    color: var(--admin-text-muted);
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+/* Card accent colors */
+.kpi-total::before   { background: linear-gradient(90deg,#6366f1,#818cf8); }
+.kpi-pending::before { background: linear-gradient(90deg,#f59e0b,#fbbf24); }
+.kpi-active::before  { background: linear-gradient(90deg,#22c55e,#4ade80); }
+.kpi-danger::before  { background: linear-gradient(90deg,#ef4444,#f87171); }
+.kpi-locked::before  { background: linear-gradient(90deg,#8b5cf6,#a78bfa); }
+.kpi-chat::before    { background: linear-gradient(90deg,#3b82f6,#60a5fa); }
+
+.kpi-total .kpi-icon   { background: rgba(99,102,241,.12); color: #818cf8; }
+.kpi-pending .kpi-icon { background: rgba(245,158,11,.12); color: #fbbf24; }
+.kpi-active .kpi-icon  { background: rgba(34,197,94,.12);  color: #4ade80; }
+.kpi-danger .kpi-icon  { background: rgba(239,68,68,.12);  color: #f87171; }
+.kpi-locked .kpi-icon  { background: rgba(139,92,246,.12); color: #a78bfa; }
+.kpi-chat .kpi-icon    { background: rgba(59,130,246,.12); color: #60a5fa; }
+
+/* ─── QUICK ACTION CARDS ─── */
+.qa-card {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    text-decoration: none;
+    color: var(--admin-text);
+    transition: all .25s ease;
+    position: relative;
+    overflow: hidden;
+}
+.qa-card::after {
+    content: '\F285';
+    font-family: 'bootstrap-icons';
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%) translateX(0);
+    font-size: .85rem;
+    color: var(--admin-text-muted);
+    opacity: 0;
+    transition: all .25s ease;
+}
+.qa-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(0,0,0,.25);
+    border-color: rgba(255,255,255,.08);
+    color: #fff;
+}
+.qa-card:hover::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+}
+.qa-card .qa-icon {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.35rem;
+    flex-shrink: 0;
+    transition: transform .25s ease;
+}
+.qa-card:hover .qa-icon { transform: scale(1.08); }
+.qa-card .qa-text h6 { font-size: .9rem; font-weight: 600; color: #fff; margin-bottom: 2px; }
+.qa-card .qa-text small { font-size: .73rem; color: var(--admin-text-muted); }
+
+/* ─── HEALTH MINI CARDS ─── */
+.health-card {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    padding: 1rem 1.15rem;
+    text-align: center;
+    transition: all .2s ease;
+}
+.health-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,.15);
+}
+.health-card .health-val {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+}
+.health-card .health-lbl {
+    font-size: .7rem;
+    color: var(--admin-text-muted);
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+/* ─── USER USAGE TABLE ─── */
+.usage-table-wrap {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+.usage-table-header {
+    padding: .85rem 1.25rem;
+    border-bottom: 1px solid var(--admin-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.usage-metric {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .78rem;
+    font-weight: 600;
+}
+.metric-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* ─── USERS PANEL ─── */
+.users-panel {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+.users-panel-header {
+    padding: .85rem 1.25rem;
+    border-bottom: 1px solid var(--admin-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.user-row {
+    display: flex;
+    align-items: center;
+    padding: .7rem 1.25rem;
+    border-bottom: 1px solid rgba(51,65,85,.5);
+    transition: background .15s ease;
+    gap: 12px;
+}
+.user-row:last-child { border-bottom: none; }
+.user-row:hover { background: rgba(255,255,255,.02); }
+.user-avatar {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .7rem;
+    flex-shrink: 0;
+    position: relative;
+}
+.user-avatar .online-dot {
+    position: absolute;
+    bottom: -1px; right: -1px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--admin-surface);
+}
+
+/* ─── ACTIVITY TIMELINE ─── */
+.activity-panel {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+.activity-panel-header {
+    padding: .85rem 1.25rem;
+    border-bottom: 1px solid var(--admin-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: .65rem;
+    font-weight: 600;
+    color: #34d399;
+    background: rgba(52,211,153,.08);
+    padding: 3px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.live-badge .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #34d399;
+    animation: liveDot 2s infinite;
+}
+.timeline-list {
+    max-height: 480px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--admin-border) transparent;
+}
+.timeline-list::-webkit-scrollbar { width: 4px; }
+.timeline-list::-webkit-scrollbar-track { background: transparent; }
+.timeline-list::-webkit-scrollbar-thumb { background: var(--admin-border); border-radius: 4px; }
+.timeline-item {
+    display: flex;
+    gap: 12px;
+    padding: .7rem 1.25rem;
+    border-bottom: 1px solid rgba(51,65,85,.4);
+    transition: background .15s ease;
+    position: relative;
+}
+.timeline-item:last-child { border-bottom: none; }
+.timeline-item:hover { background: rgba(255,255,255,.015); }
+.timeline-icon {
+    width: 32px; height: 32px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .75rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.timeline-content { flex: 1; min-width: 0; }
+.timeline-action {
+    font-size: .78rem;
+    line-height: 1.35;
+}
+.timeline-action .actor { font-weight: 600; color: #fff; }
+.timeline-action .verb { color: var(--admin-text-muted); }
+.timeline-action .target { font-weight: 500; color: #cbd5e1; }
+.timeline-detail {
+    font-size: .68rem;
+    color: var(--admin-text-muted);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.timeline-time {
+    font-size: .62rem;
+    color: #475569;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ─── SECTION LABEL ─── */
+.section-label {
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--admin-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: .75rem;
+}
+.section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--admin-border);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="mb-4 dash-fadein">
+    <h3 class="fw-bold mb-1" style="letter-spacing:-.3px;">
+        <i class="bi bi-grid-1x2-fill me-2" style="color:var(--admin-accent);"></i>Dashboard
+    </h3>
+    <p style="color:var(--admin-text-muted);font-size:.88rem;" class="mb-0">
+        Welcome back, <span class="fw-semibold" style="color:#fff;">{{ current_user.full_name }}</span> — here's your system overview
+    </p>
+</div>
+
+<!-- ═══ KPI STAT CARDS ═══ -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl-2 dash-fadein dash-fadein-1">
+        <div class="kpi-card kpi-total">
+            <div class="kpi-icon"><i class="bi bi-people-fill"></i></div>
+            <div class="kpi-info">
+                <div class="kpi-value" style="color:#818cf8;">{{ all_users }}</div>
+                <div class="kpi-label">Total Users</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2 dash-fadein dash-fadein-2">
+        <div class="kpi-card kpi-pending">
+            <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
+            <div class="kpi-info">
+                <div class="kpi-value" style="color:#fbbf24;">{{ pending }}{% if pending > 0 %}<sup style="font-size:.55rem;color:#f59e0b;margin-left:3px;">!</sup>{% endif %}</div>
+                <div class="kpi-label">Pending</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2 dash-fadein dash-fadein-3">
+        <div class="kpi-card kpi-active">
+            <div class="kpi-icon"><i class="bi bi-check-circle-fill"></i></div>
+            <div class="kpi-info">
+                <div class="kpi-value" style="color:#4ade80;">{{ active_users }}</div>
+                <div class="kpi-label">Active</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2 dash-fadein dash-fadein-4">
+        <div class="kpi-card kpi-danger">
+            <div class="kpi-icon"><i class="bi bi-slash-circle-fill"></i></div>
+            <div class="kpi-info">
+                <div class="kpi-value" style="color:#f87171;">{{ suspended_users }}</div>
+                <div class="kpi-label">Suspended</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2 dash-fadein dash-fadein-5">
+        <div class="kpi-card kpi-locked">
+            <div class="kpi-icon"><i class="bi bi-lock-fill"></i></div>
+            <div class="kpi-info">
+                <div class="kpi-value" style="color:#a78bfa;">{{ locked_users }}</div>
+                <div class="kpi-label">Locked</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2 dash-fadein dash-fadein-6">
+        <div class="kpi-card kpi-chat">
+            <div class="kpi-icon"><i class="bi bi-chat-left-text-fill"></i></div>
+            <div class="kpi-info">
+                <div class="kpi-value" style="color:#60a5fa;">{{ unread_chats }}{% if unread_chats > 0 %}<sup style="font-size:.55rem;color:#3b82f6;margin-left:3px;">new</sup>{% endif %}</div>
+                <div class="kpi-label">Unread Chats</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ SYSTEM HEALTH ═══ -->
+<div class="section-label dash-fadein"><i class="bi bi-heart-pulse-fill" style="color:#e879f9;"></i> System Health &amp; Activity</div>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3 dash-fadein dash-fadein-1">
+        <div class="health-card">
+            <div class="health-val" style="color:#34d399;">{{ new_registrations_week }}</div>
+            <div class="health-lbl"><i class="bi bi-person-plus-fill me-1"></i>New This Week</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3 dash-fadein dash-fadein-2">
+        <div class="health-card">
+            <div class="health-val" style="color:#60a5fa;">{{ logins_today }}</div>
+            <div class="health-lbl"><i class="bi bi-box-arrow-in-right me-1"></i>Logins Today</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3 dash-fadein dash-fadein-3">
+        <div class="health-card">
+            <div class="health-val" style="color:#e879f9;">{{ actions_this_week }}</div>
+            <div class="health-lbl"><i class="bi bi-activity me-1"></i>Actions This Week</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3 dash-fadein dash-fadein-4">
+        <div class="health-card">
+            <div class="health-val" style="color:{% if never_logged_in > 0 %}#fbbf24{% else %}#34d399{% endif %};">{{ never_logged_in }}</div>
+            <div class="health-lbl"><i class="bi bi-person-slash me-1"></i>Never Logged In</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ QUICK ACTIONS ═══ -->
+<div class="section-label dash-fadein"><i class="bi bi-lightning-charge-fill" style="color:#fbbf24;"></i> Quick Actions</div>
+<div class="row g-3 mb-4">
+    <!-- Registration Approval Toggle -->
+    <div class="col-12 dash-fadein dash-fadein-1">
+        <div class="kpi-card" style="padding:1rem 1.25rem;border-radius:14px;">
+            <div class="kpi-icon" style="width:48px;height:48px;border-radius:12px;{% if require_approval %}background:rgba(34,197,94,.12);{% else %}background:rgba(245,158,11,.12);{% endif %}">
+                <i class="bi {% if require_approval %}bi-shield-lock-fill{% else %}bi-shield-slash{% endif %}" style="font-size:1.2rem;{% if require_approval %}color:#4ade80;{% else %}color:#fbbf24;{% endif %}"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div class="fw-bold" style="font-size:.92rem;color:#fff;">Registration Approval</div>
+                <div style="font-size:.75rem;color:var(--admin-text-muted);line-height:1.4;margin-top:2px;">
+                    {% if require_approval %}
+                        <span style="color:#4ade80;font-weight:600;">ON</span> — New users must be approved by admin before they can sign in.
+                    {% else %}
+                        <span style="color:#fbbf24;font-weight:600;">OFF</span> — New users can sign in immediately after registration.
+                    {% endif %}
+                </div>
+            </div>
+            <form method="POST" action="{{ url_for('admin.toggle_approval') }}" style="flex-shrink:0;margin-left:12px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm" style="min-width:90px;font-size:.75rem;font-weight:600;border-radius:10px;padding:6px 16px;transition:all .2s;{% if require_approval %}background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.25);{% else %}background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.25);{% endif %}"
+                        onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+                    <i class="bi {% if require_approval %}bi-toggle-on{% else %}bi-toggle-off{% endif %} me-1"></i>
+                    {{ 'ON' if require_approval else 'OFF' }}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4 dash-fadein dash-fadein-2">
+        <a href="{{ url_for('admin.pending_registrations') }}" class="qa-card">
+            <div class="qa-icon" style="background:linear-gradient(135deg,rgba(245,158,11,.15),rgba(245,158,11,.05));">
+                <i class="bi bi-person-check-fill" style="color:#fbbf24;"></i>
+            </div>
+            <div class="qa-text">
+                <h6>Pending Registrations
+                    {% if pending > 0 %}<span class="badge ms-1" style="font-size:.6rem;background:#f59e0b;color:#000;animation:countPulse 2s infinite;">{{ pending }}</span>{% endif %}
+                </h6>
+                <small>Review &amp; approve new user signups</small>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-4 dash-fadein dash-fadein-3">
+        <a href="{{ url_for('admin.users_list') }}" class="qa-card">
+            <div class="qa-icon" style="background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(99,102,241,.05));">
+                <i class="bi bi-people-fill" style="color:#818cf8;"></i>
+            </div>
+            <div class="qa-text">
+                <h6>Manage Users</h6>
+                <small>View, suspend, lock, or remove accounts</small>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-4 dash-fadein dash-fadein-4">
+        <a href="{{ url_for('admin.chat_list') }}" class="qa-card">
+            <div class="qa-icon" style="background:linear-gradient(135deg,rgba(59,130,246,.15),rgba(59,130,246,.05));">
+                <i class="bi bi-chat-dots-fill" style="color:#60a5fa;"></i>
+            </div>
+            <div class="qa-text">
+                <h6>Live Chat Support
+                    {% if unread_chats > 0 %}<span class="badge ms-1" style="font-size:.6rem;background:#3b82f6;color:#fff;">{{ unread_chats }} new</span>{% endif %}
+                </h6>
+                <small>Respond to user support messages</small>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- ═══ USER ACTIVITY OVERVIEW TABLE ═══ -->
+{% if user_usage %}
+<div class="section-label dash-fadein"><i class="bi bi-bar-chart-fill" style="color:#22d3ee;"></i> User Activity Overview</div>
+<div class="usage-table-wrap mb-4 dash-fadein">
+    <div class="usage-table-header">
+        <span class="fw-semibold" style="font-size:.85rem;color:#fff;"><i class="bi bi-table me-2" style="color:var(--admin-text-muted);"></i>Per-User Breakdown</span>
+        <div class="d-flex gap-3">
+            <span class="usage-metric"><span class="metric-dot" style="background:#34d399;"></span> Customers</span>
+            <span class="usage-metric"><span class="metric-dot" style="background:#a78bfa;"></span> Products</span>
+            <span class="usage-metric"><span class="metric-dot" style="background:#22d3ee;"></span> Invoices</span>
+            <span class="usage-metric"><span class="metric-dot" style="background:#f87171;"></span> Bills</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0" style="color:var(--admin-text);--bs-table-bg:transparent;">
+            <thead>
+                <tr>
+                    <th style="color:var(--admin-text-muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-color:var(--admin-border);padding:.65rem 1.25rem;">User</th>
+                    <th style="color:var(--admin-text-muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-color:var(--admin-border);">Company</th>
+                    <th style="color:var(--admin-text-muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-color:var(--admin-border);">Industry</th>
+                    <th class="text-center" style="color:var(--admin-text-muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-color:var(--admin-border);">Cust.</th>
+                    <th class="text-center" style="color:var(--admin-text-muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-color:var(--admin-border);">Prod.</th>
+                    <th class="text-center" style="color:var(--admin-text-muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-color:var(--admin-border);">Inv.</th>
+                    <th class="text-center" style="color:var(--admin-text-muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-color:var(--admin-border);">Bills</th>
+                    <th style="color:var(--admin-text-muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-color:var(--admin-border);">Status</th>
+                    <th style="color:var(--admin-text-muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;border-color:var(--admin-border);">Last Login</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for uu in user_usage %}
+                <tr style="border-color:var(--admin-border);">
+                    <td style="border-color:var(--admin-border);padding:.65rem 1.25rem;">
+                        <div class="d-flex align-items-center">
+                            <div class="user-avatar me-2"
+                                style="{% if uu.user.account_status == 'active' %}background:rgba(34,197,94,.12);color:#4ade80;{% elif uu.user.account_status == 'suspended' %}background:rgba(239,68,68,.12);color:#f87171;{% else %}background:rgba(148,163,184,.12);color:#94a3b8;{% endif %}width:32px;height:32px;border-radius:8px;">
+                                {{ uu.user.full_name[:2]|upper }}
+                            </div>
+                            <div>
+                                <div class="fw-semibold" style="font-size:.82rem;color:#fff;">{{ uu.user.full_name }}</div>
+                                <div style="font-size:.65rem;color:var(--admin-text-muted);">{{ uu.user.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="border-color:var(--admin-border);font-size:.82rem;font-weight:500;color:#cbd5e1;">{{ uu.company }}</td>
+                    <td style="border-color:var(--admin-border);">
+                        <span class="badge" style="font-size:.62rem;background:rgba(99,102,241,.12);color:#a5b4fc;padding:4px 8px;border-radius:6px;">{{ uu.industry|capitalize }}</span>
+                    </td>
+                    <td class="text-center" style="border-color:var(--admin-border);font-size:.85rem;font-weight:700;color:#34d399;">{{ uu.customers }}</td>
+                    <td class="text-center" style="border-color:var(--admin-border);font-size:.85rem;font-weight:700;color:#a78bfa;">{{ uu.products }}</td>
+                    <td class="text-center" style="border-color:var(--admin-border);font-size:.85rem;font-weight:700;color:#22d3ee;">{{ uu.invoices }}</td>
+                    <td class="text-center" style="border-color:var(--admin-border);font-size:.85rem;font-weight:700;color:#f87171;">{{ uu.bills }}</td>
+                    <td style="border-color:var(--admin-border);">
+                        {% if uu.user.account_status == 'active' %}
+                            <span class="badge" style="font-size:.6rem;background:rgba(34,197,94,.12);color:#4ade80;padding:4px 8px;border-radius:6px;">Active</span>
+                        {% elif uu.user.account_status == 'suspended' %}
+                            <span class="badge" style="font-size:.6rem;background:rgba(239,68,68,.12);color:#f87171;padding:4px 8px;border-radius:6px;">Suspended</span>
+                        {% elif uu.user.account_status == 'locked' %}
+                            <span class="badge" style="font-size:.6rem;background:rgba(245,158,11,.12);color:#fbbf24;padding:4px 8px;border-radius:6px;">Locked</span>
+                        {% else %}
+                            <span class="badge" style="font-size:.6rem;background:rgba(148,163,184,.12);color:#94a3b8;padding:4px 8px;border-radius:6px;">{{ uu.user.account_status|capitalize }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="border-color:var(--admin-border);font-size:.72rem;color:var(--admin-text-muted);">
+                        {% if uu.user.last_login %}
+                            {{ uu.user.last_login.strftime('%b %d, %I:%M %p') }}
+                        {% else %}
+                            <span style="color:#475569;font-style:italic;">Never</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- ═══ TWO-COLUMN: USERS + ACTIVITY ═══ -->
+<div class="row g-3">
+    <!-- ALL USERS PANEL -->
+    <div class="col-lg-6 dash-fadein">
+        <div class="users-panel">
+            <div class="users-panel-header">
+                <span class="fw-semibold" style="font-size:.88rem;color:#fff;">
+                    <i class="bi bi-people-fill me-2" style="color:#818cf8;"></i>All Users
+                </span>
+                <a href="{{ url_for('admin.users_list') }}" class="btn btn-sm" style="font-size:.68rem;background:rgba(99,102,241,.1);color:#a5b4fc;border:1px solid rgba(99,102,241,.2);border-radius:8px;padding:4px 12px;">
+                    View All <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            </div>
+            <div style="max-height:420px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--admin-border) transparent;">
+                {% for user in recent_users %}
+                <div class="user-row">
+                    <div class="user-avatar"
+                        style="{% if user.is_superadmin %}background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(139,92,246,.2));color:#a5b4fc;{% elif user.account_status == 'active' %}background:rgba(34,197,94,.1);color:#4ade80;{% elif user.account_status == 'suspended' %}background:rgba(239,68,68,.1);color:#f87171;{% else %}background:rgba(148,163,184,.1);color:#94a3b8;{% endif %}">
+                        {{ user.full_name[:2]|upper }}
+                        <span class="online-dot" style="{% if user.account_status == 'active' %}background:#4ade80;{% elif user.account_status == 'suspended' %}background:#f87171;{% elif user.account_status == 'locked' %}background:#fbbf24;{% else %}background:#64748b;{% endif %}"></span>
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-semibold" style="font-size:.84rem;color:#fff;">{{ user.full_name }}</span>
+                            {% if user.is_superadmin %}
+                            <span class="badge" style="font-size:.5rem;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:2px 6px;border-radius:4px;letter-spacing:.5px;">ADMIN</span>
+                            {% endif %}
+                        </div>
+                        <div style="font-size:.68rem;color:var(--admin-text-muted);">{{ user.email }}</div>
+                    </div>
+                    <div class="text-end" style="flex-shrink:0;">
+                        {% if user.approval_status == 'pending' %}
+                            <span class="badge" style="font-size:.58rem;background:rgba(245,158,11,.12);color:#fbbf24;padding:3px 8px;border-radius:6px;">Pending</span>
+                        {% elif user.account_status == 'active' %}
+                            <span class="badge" style="font-size:.58rem;background:rgba(34,197,94,.1);color:#4ade80;padding:3px 8px;border-radius:6px;">Active</span>
+                        {% elif user.account_status == 'suspended' %}
+                            <span class="badge" style="font-size:.58rem;background:rgba(239,68,68,.1);color:#f87171;padding:3px 8px;border-radius:6px;">Suspended</span>
+                        {% elif user.account_status == 'locked' %}
+                            <span class="badge" style="font-size:.58rem;background:rgba(245,158,11,.1);color:#fbbf24;padding:3px 8px;border-radius:6px;">Locked</span>
+                        {% elif user.account_status == 'removed' %}
+                            <span class="badge" style="font-size:.58rem;background:rgba(148,163,184,.1);color:#94a3b8;padding:3px 8px;border-radius:6px;">Removed</span>
+                        {% endif %}
+                        <div style="font-size:.62rem;color:#475569;margin-top:3px;">
+                            {% if user.last_login %}{{ user.last_login.strftime('%b %d, %I:%M %p') }}{% else %}<em>Never</em>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% if not recent_users %}
+                <div class="text-center py-5" style="color:var(--admin-text-muted);">
+                    <i class="bi bi-people" style="font-size:2rem;opacity:.4;"></i>
+                    <p class="mb-0 mt-2" style="font-size:.8rem;">No users registered yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ACTIVITY TIMELINE -->
+    <div class="col-lg-6 dash-fadein">
+        <div class="activity-panel">
+            <div class="activity-panel-header">
+                <span class="fw-semibold" style="font-size:.88rem;color:#fff;">
+                    <i class="bi bi-clock-history me-2" style="color:#e879f9;"></i>Recent Activity
+                </span>
+                <span class="live-badge"><span class="dot"></span> Live</span>
+            </div>
+            <div class="timeline-list">
+                {% if recent_activity %}
+                    {% for log in recent_activity %}
+                    <div class="timeline-item">
+                        <div class="timeline-icon"
+                            style="{% if log.action == 'create' %}background:rgba(34,197,94,.1);color:#4ade80;{% elif log.action == 'update' %}background:rgba(59,130,246,.1);color:#60a5fa;{% elif log.action in ('delete','remove','reject') %}background:rgba(239,68,68,.1);color:#f87171;{% elif log.action in ('login','login_failed') %}background:rgba(99,102,241,.1);color:#818cf8;{% elif log.action in ('approve','reactivate') %}background:rgba(52,211,153,.1);color:#34d399;{% elif log.action in ('suspend','lock') %}background:rgba(245,158,11,.1);color:#fbbf24;{% else %}background:rgba(148,163,184,.08);color:#94a3b8;{% endif %}">
+                            {% if log.action == 'create' %}
+                                <i class="bi bi-plus-circle-fill"></i>
+                            {% elif log.action == 'update' %}
+                                <i class="bi bi-pencil-fill"></i>
+                            {% elif log.action in ('delete','remove') %}
+                                <i class="bi bi-trash3-fill"></i>
+                            {% elif log.action == 'login' %}
+                                <i class="bi bi-box-arrow-in-right"></i>
+                            {% elif log.action == 'login_failed' %}
+                                <i class="bi bi-x-octagon-fill"></i>
+                            {% elif log.action == 'approve' %}
+                                <i class="bi bi-check-circle-fill"></i>
+                            {% elif log.action in ('suspend','lock') %}
+                                <i class="bi bi-shield-exclamation"></i>
+                            {% elif log.action == 'reject' %}
+                                <i class="bi bi-x-circle-fill"></i>
+                            {% elif log.action == 'reactivate' %}
+                                <i class="bi bi-arrow-repeat"></i>
+                            {% else %}
+                                <i class="bi bi-activity"></i>
+                            {% endif %}
+                        </div>
+                        <div class="timeline-content">
+                            <div class="timeline-action">
+                                <span class="actor">{{ log.user_name or 'System' }}</span>
+                                <span class="verb">
+                                    {% if log.action == 'create' %}created{% elif log.action == 'update' %}updated{% elif log.action == 'delete' %}deleted{% elif log.action == 'login' %}signed in{% elif log.action == 'login_failed' %}failed login{% elif log.action == 'approve' %}approved{% elif log.action == 'reject' %}rejected{% elif log.action == 'suspend' %}suspended{% elif log.action == 'lock' %}locked{% elif log.action == 'reactivate' %}reactivated{% elif log.action == 'remove' %}removed{% else %}{{ log.action }}{% endif %}
+                                </span>
+                                {% if log.entity_label %}
+                                <span class="target">{{ log.entity_type }} {{ log.entity_label }}</span>
+                                {% elif log.entity_type %}
+                                <span class="target">{{ log.entity_type }}</span>
+                                {% endif %}
+                            </div>
+                            {% if log.details %}
+                            <div class="timeline-detail">{{ log.details }}</div>
+                            {% endif %}
+                            <div class="timeline-time">
+                                <i class="bi bi-clock"></i>
+                                {{ log.timestamp.strftime('%b %d, %Y %I:%M %p') }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="text-center py-5" style="color:var(--admin-text-muted);">
+                    <i class="bi bi-clock-history" style="font-size:2rem;opacity:.4;"></i>
+                    <p class="mb-0 mt-2" style="font-size:.8rem;">No activity recorded yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

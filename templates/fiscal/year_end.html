@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Year-End Closing{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-calendar-event me-2"></i>Year-End Closing</h2>
+    <a href="{{ url_for('fiscal.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back to Periods</a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Close Revenue & Expense Accounts</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Year-end closing</strong> transfers all revenue and expense account balances to Retained Earnings (account 3200).
+                    This creates a closing journal entry that zeroes out all income statement accounts for the selected fiscal year.
+                </div>
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Important:</strong> Ensure all transactions for the fiscal year are finalized before performing year-end closing.
+                    This process should only be run once per fiscal year.
+                </div>
+                <form method="POST" onsubmit="return confirm('Are you sure you want to close the selected fiscal year? This will create a closing journal entry.')">
+                    <div class="mb-3">
+                        <label class="form-label">Fiscal Year</label>
+                        <select name="fiscal_year" class="form-select" required>
+                            {% for y in years %}
+                            <option value="{{ y }}" {{ 'selected' if y == current_year - 1 }}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Select the fiscal year to close. Typically, you close the previous year.</div>
+                    </div>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-check-circle me-1"></i>Perform Year-End Closing</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

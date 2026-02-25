@@ -1,0 +1,911 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ user.full_name }} — System Admin{% endblock %}
+{% block page_title %}User Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+@keyframes fadeInUp { from{opacity:0;transform:translateY(16px);} to{opacity:1;transform:translateY(0);} }
+@keyframes pulseGlow { 0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,.3);} 50%{box-shadow:0 0 0 12px rgba(99,102,241,0);} }
+@keyframes statusPulse { 0%,100%{opacity:1;} 50%{opacity:.6;} }
+.ud-fadein { animation: fadeInUp .4s ease both; }
+.ud-fadein-1 { animation-delay:.05s; }
+.ud-fadein-2 { animation-delay:.1s; }
+.ud-fadein-3 { animation-delay:.15s; }
+.ud-fadein-4 { animation-delay:.2s; }
+
+/* ── BACK BUTTON ── */
+.ud-back-btn {
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:.78rem; font-weight:500;
+    color:var(--admin-text-muted);
+    text-decoration:none;
+    padding:6px 14px;
+    border-radius:8px;
+    border:1px solid var(--admin-border);
+    transition:all .2s ease;
+}
+.ud-back-btn:hover { color:#fff; background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.1); }
+
+/* ── PROFILE HERO ── */
+.ud-profile-hero {
+    background: var(--admin-surface);
+    border:1px solid var(--admin-border);
+    border-radius:16px;
+    overflow:hidden;
+    position:relative;
+}
+.ud-profile-banner {
+    height:90px;
+    position:relative;
+    overflow:hidden;
+}
+.ud-profile-banner::before {
+    content:'';
+    position:absolute; inset:0;
+    opacity:.6;
+}
+.ud-profile-body {
+    padding:0 1.5rem 1.5rem;
+    position:relative;
+}
+.ud-avatar-wrap {
+    margin-top:-42px;
+    margin-bottom:12px;
+    display:flex;
+    justify-content:center;
+}
+.ud-avatar {
+    width:84px; height:84px;
+    border-radius:18px;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:1.4rem; color:#fff;
+    border:4px solid var(--admin-surface);
+    position:relative;
+    box-shadow:0 8px 24px rgba(0,0,0,.3);
+}
+.ud-avatar .status-ring {
+    position:absolute; bottom:-2px; right:-2px;
+    width:22px; height:22px;
+    border-radius:50%;
+    border:3px solid var(--admin-surface);
+    display:flex; align-items:center; justify-content:center;
+}
+.ud-avatar .status-ring i { font-size:.55rem; }
+.ud-name { font-size:1.15rem; font-weight:700; color:#fff; letter-spacing:-.3px; }
+.ud-email { font-size:.78rem; color:var(--admin-text-muted); }
+
+/* ── STATUS BADGES ── */
+.ud-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    font-size:.65rem; font-weight:600;
+    padding:4px 10px; border-radius:8px;
+    letter-spacing:.3px;
+}
+.ud-badge-approved { background:rgba(34,197,94,.1); color:#4ade80; }
+.ud-badge-pending  { background:rgba(245,158,11,.1); color:#fbbf24; }
+.ud-badge-rejected { background:rgba(239,68,68,.1); color:#f87171; }
+.ud-badge-active   { background:rgba(34,197,94,.1); color:#4ade80; }
+.ud-badge-suspended{ background:rgba(239,68,68,.1); color:#f87171; }
+.ud-badge-locked   { background:rgba(245,158,11,.1); color:#fbbf24; }
+.ud-badge-removed  { background:rgba(148,163,184,.1); color:#94a3b8; }
+
+/* ── INFO ROWS ── */
+.ud-info-section { padding:0 1.5rem 1.25rem; }
+.ud-info-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:.6rem 0;
+    border-bottom:1px solid rgba(51,65,85,.4);
+    font-size:.82rem;
+}
+.ud-info-row:last-child { border-bottom:none; }
+.ud-info-label {
+    display:flex; align-items:center; gap:8px;
+    color:var(--admin-text-muted); font-weight:500;
+}
+.ud-info-label i { font-size:.85rem; width:18px; text-align:center; }
+.ud-info-value { font-weight:600; color:#e2e8f0; text-align:right; }
+
+/* ── ACTION PANEL ── */
+.ud-actions-panel {
+    background:var(--admin-surface);
+    border:1px solid var(--admin-border);
+    border-radius:14px;
+    overflow:hidden;
+}
+.ud-actions-header {
+    padding:.85rem 1.25rem;
+    border-bottom:1px solid var(--admin-border);
+    font-size:.85rem; font-weight:600; color:#fff;
+    display:flex; align-items:center; gap:8px;
+}
+.ud-actions-body { padding:1rem 1.25rem; display:flex; flex-direction:column; gap:8px; }
+
+/* Action buttons */
+.ud-action-btn {
+    display:flex; align-items:center; gap:10px;
+    width:100%; padding:.7rem 1rem;
+    border-radius:10px; border:1px solid transparent;
+    font-size:.82rem; font-weight:600;
+    cursor:pointer;
+    transition:all .2s ease;
+    text-decoration:none;
+    text-align:left;
+}
+.ud-action-btn i { font-size:1rem; width:20px; text-align:center; }
+
+.ud-btn-success {
+    background:rgba(34,197,94,.08); color:#4ade80;
+    border-color:rgba(34,197,94,.15);
+}
+.ud-btn-success:hover { background:rgba(34,197,94,.18); color:#4ade80; transform:translateY(-1px); box-shadow:0 4px 12px rgba(34,197,94,.15); }
+
+.ud-btn-warning {
+    background:rgba(245,158,11,.08); color:#fbbf24;
+    border-color:rgba(245,158,11,.15);
+}
+.ud-btn-warning:hover { background:rgba(245,158,11,.18); color:#fbbf24; transform:translateY(-1px); box-shadow:0 4px 12px rgba(245,158,11,.15); }
+
+.ud-btn-danger {
+    background:rgba(239,68,68,.06); color:#f87171;
+    border-color:rgba(239,68,68,.12);
+}
+.ud-btn-danger:hover { background:rgba(239,68,68,.15); color:#f87171; transform:translateY(-1px); box-shadow:0 4px 12px rgba(239,68,68,.15); }
+
+.ud-btn-info {
+    background:rgba(59,130,246,.08); color:#60a5fa;
+    border-color:rgba(59,130,246,.15);
+}
+.ud-btn-info:hover { background:rgba(59,130,246,.18); color:#60a5fa; transform:translateY(-1px); box-shadow:0 4px 12px rgba(59,130,246,.15); }
+
+.ud-btn-lock {
+    background:rgba(139,92,246,.08); color:#a78bfa;
+    border-color:rgba(139,92,246,.15);
+}
+.ud-btn-lock:hover { background:rgba(139,92,246,.18); color:#a78bfa; transform:translateY(-1px); box-shadow:0 4px 12px rgba(139,92,246,.15); }
+
+/* ── CREDENTIAL CARDS ── */
+.ud-cred-card {
+    background:var(--admin-surface);
+    border:1px solid var(--admin-border);
+    border-radius:14px;
+    overflow:hidden;
+    transition:all .2s ease;
+}
+.ud-cred-card:hover { border-color:rgba(255,255,255,.06); }
+.ud-cred-header {
+    padding:.85rem 1.25rem;
+    border-bottom:1px solid var(--admin-border);
+    display:flex; align-items:center; gap:10px;
+    font-size:.85rem; font-weight:600; color:#fff;
+}
+.ud-cred-header .cred-icon {
+    width:32px; height:32px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.85rem;
+}
+.ud-cred-body { padding:1.25rem; }
+
+.ud-input-group { margin-bottom:1rem; }
+.ud-input-group:last-of-type { margin-bottom:0; }
+.ud-input-label {
+    font-size:.72rem; font-weight:600; text-transform:uppercase;
+    letter-spacing:.5px; color:var(--admin-text-muted);
+    margin-bottom:6px; display:block;
+}
+.ud-form-control {
+    width:100%; padding:.65rem 1rem;
+    background:var(--admin-bg); border:1px solid var(--admin-border);
+    border-radius:10px; color:var(--admin-text);
+    font-size:.85rem; font-family:inherit;
+    transition:all .2s ease;
+}
+.ud-form-control:focus {
+    outline:none; border-color:var(--admin-accent);
+    box-shadow:0 0 0 3px rgba(99,102,241,.15);
+}
+.ud-form-control:disabled {
+    opacity:.5; cursor:not-allowed;
+}
+.ud-form-control::placeholder { color:#475569; }
+.ud-form-hint { font-size:.68rem; color:#64748b; margin-top:4px; }
+
+.ud-submit-btn {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:.6rem 1.25rem;
+    border-radius:10px; border:none;
+    font-size:.8rem; font-weight:600;
+    cursor:pointer;
+    transition:all .2s ease;
+    margin-top:.75rem;
+}
+.ud-submit-btn:hover { transform:translateY(-1px); }
+.ud-submit-email {
+    background:linear-gradient(135deg,#6366f1,#818cf8); color:#fff;
+    box-shadow:0 4px 12px rgba(99,102,241,.3);
+}
+.ud-submit-email:hover { box-shadow:0 6px 20px rgba(99,102,241,.4); }
+.ud-submit-password {
+    background:linear-gradient(135deg,#f59e0b,#fbbf24); color:#000;
+    box-shadow:0 4px 12px rgba(245,158,11,.3);
+}
+.ud-submit-password:hover { box-shadow:0 6px 20px rgba(245,158,11,.4); }
+
+/* ── PASSWORD REVEAL ── */
+.ud-pwd-wrap {
+    display:flex; align-items:center; gap:8px;
+}
+.ud-pwd-code {
+    font-family:'SF Mono','Fira Code',monospace;
+    font-size:.82rem; font-weight:500;
+    background:rgba(99,102,241,.08);
+    border:1px solid rgba(99,102,241,.12);
+    padding:4px 12px; border-radius:8px;
+    color:#a5b4fc;
+    letter-spacing:.5px;
+}
+.ud-pwd-toggle {
+    width:28px; height:28px; border-radius:6px;
+    border:1px solid var(--admin-border);
+    background:transparent; color:var(--admin-text-muted);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:.75rem;
+    transition:all .15s;
+}
+.ud-pwd-toggle:hover { background:rgba(255,255,255,.05); color:#fff; }
+
+/* ── MODAL OVERRIDES ── */
+.ud-modal .modal-content {
+    border-radius:16px;
+    border:1px solid rgba(99,102,241,.15);
+    box-shadow:0 20px 60px rgba(0,0,0,.4);
+}
+.ud-modal .modal-header {
+    padding:1.25rem 1.5rem;
+    border-bottom:1px solid var(--admin-border);
+}
+.ud-modal .modal-title {
+    font-size:.95rem; font-weight:700;
+    display:flex; align-items:center; gap:8px;
+}
+.ud-modal .modal-body { padding:1.5rem; }
+.ud-modal .modal-footer {
+    padding:1rem 1.5rem;
+    border-top:1px solid var(--admin-border);
+    gap:8px;
+}
+.ud-modal .modal-footer .btn { border-radius:8px; font-size:.8rem; font-weight:600; padding:.5rem 1.25rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4 ud-fadein">
+    <div>
+        <a href="{{ url_for('admin.users_list') }}" class="ud-back-btn mb-3 d-inline-flex">
+            <i class="bi bi-arrow-left"></i> Back to Users
+        </a>
+        <h3 class="fw-bold mb-1" style="letter-spacing:-.3px;">
+            <i class="bi bi-person-gear me-2" style="color:var(--admin-accent);"></i>{{ user.full_name }}
+        </h3>
+        <p style="color:var(--admin-text-muted);font-size:.85rem;" class="mb-0">Manage account, credentials &amp; permissions</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="ud-badge {% if user.account_status == 'active' %}ud-badge-active{% elif user.account_status == 'suspended' %}ud-badge-suspended{% elif user.account_status == 'locked' %}ud-badge-locked{% else %}ud-badge-removed{% endif %}" style="font-size:.72rem;padding:5px 12px;">
+            <i class="bi {% if user.account_status == 'active' %}bi-check-circle-fill{% elif user.account_status == 'suspended' %}bi-pause-circle-fill{% elif user.account_status == 'locked' %}bi-lock-fill{% else %}bi-slash-circle{% endif %}"></i>
+            {{ user.account_status|capitalize }}
+        </span>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- ═══ LEFT COLUMN: Profile + Actions ═══ -->
+    <div class="col-lg-5">
+        <!-- Profile Hero Card -->
+        <div class="ud-profile-hero ud-fadein ud-fadein-1">
+            <div class="ud-profile-banner"
+                style="background:linear-gradient(135deg,
+                    {% if user.account_status == 'active' %}#065f46,#047857{% elif user.account_status == 'suspended' %}#7f1d1d,#991b1b{% elif user.account_status == 'locked' %}#78350f,#92400e{% else %}#1e293b,#334155{% endif %});">
+            </div>
+            <div class="ud-profile-body">
+                <div class="ud-avatar-wrap">
+                    <div class="ud-avatar"
+                        style="background:linear-gradient(135deg,
+                            {% if user.account_status == 'active' %}#059669,#34d399{% elif user.account_status == 'suspended' %}#dc2626,#f87171{% elif user.account_status == 'locked' %}#d97706,#fbbf24{% else %}#475569,#94a3b8{% endif %});">
+                        {{ user.full_name[:2]|upper }}
+                        <span class="status-ring"
+                            style="background:{% if user.account_status == 'active' %}#22c55e{% elif user.account_status == 'suspended' %}#ef4444{% elif user.account_status == 'locked' %}#f59e0b{% else %}#64748b{% endif %};">
+                            <i class="bi {% if user.account_status == 'active' %}bi-check{% elif user.account_status == 'suspended' %}bi-pause-fill{% elif user.account_status == 'locked' %}bi-lock-fill{% else %}bi-dash{% endif %}" style="color:#fff;"></i>
+                        </span>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <div class="ud-name">{{ user.full_name }}</div>
+                    <div class="ud-email mb-2">{{ user.email }}</div>
+                    <div class="d-flex justify-content-center gap-2">
+                        {% if user.approval_status == 'approved' %}
+                            <span class="ud-badge ud-badge-approved"><i class="bi bi-patch-check-fill"></i> Approved</span>
+                        {% elif user.approval_status == 'pending' %}
+                            <span class="ud-badge ud-badge-pending"><i class="bi bi-hourglass-split"></i> Pending</span>
+                        {% elif user.approval_status == 'rejected' %}
+                            <span class="ud-badge ud-badge-rejected"><i class="bi bi-x-circle-fill"></i> Rejected</span>
+                        {% endif %}
+                        {% if user.is_superadmin %}
+                            <span class="ud-badge" style="background:rgba(99,102,241,.12);color:#a5b4fc;"><i class="bi bi-shield-fill"></i> Super Admin</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Rows -->
+            <div class="ud-info-section">
+                <div class="ud-info-row">
+                    <span class="ud-info-label"><i class="bi bi-person-badge"></i> Role</span>
+                    <span class="ud-info-value">{{ user.role|title }}</span>
+                </div>
+                <div class="ud-info-row">
+                    <span class="ud-info-label"><i class="bi bi-envelope"></i> Email</span>
+                    <span class="ud-info-value" style="color:#60a5fa;">{{ user.email }}</span>
+                </div>
+                <div class="ud-info-row">
+                    <span class="ud-info-label"><i class="bi bi-key"></i> Password</span>
+                    <span class="ud-info-value">
+                        <span class="ud-pwd-wrap">
+                            <code class="ud-pwd-code" id="pwd-display">{{ user.plain_password if user.plain_password else '••••••••' }}</code>
+                            {% if user.plain_password %}
+                            <button type="button" class="ud-pwd-toggle" onclick="togglePwd()" title="Toggle visibility">
+                                <i id="pwd-icon" class="bi bi-eye"></i>
+                            </button>
+                            {% endif %}
+                        </span>
+                    </span>
+                </div>
+                <div class="ud-info-row">
+                    <span class="ud-info-label"><i class="bi bi-calendar-event"></i> Registered</span>
+                    <span class="ud-info-value" style="font-size:.78rem;">{{ user.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
+                </div>
+                <div class="ud-info-row">
+                    <span class="ud-info-label"><i class="bi bi-clock-history"></i> Last Login</span>
+                    <span class="ud-info-value" style="font-size:.78rem;">
+                        {% if user.last_login %}
+                            {{ user.last_login.strftime('%b %d, %Y %I:%M %p') }}
+                        {% else %}
+                            <span style="color:#64748b;font-style:italic;">Never</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% if user.suspended_reason %}
+                <div class="ud-info-row">
+                    <span class="ud-info-label"><i class="bi bi-exclamation-triangle"></i> Reason</span>
+                    <span class="ud-info-value" style="color:#f87171;font-size:.78rem;">{{ user.suspended_reason }}</span>
+                </div>
+                {% endif %}
+                {% if user.account_status == 'suspended' and user.suspended_until %}
+                <div class="ud-info-row">
+                    <span class="ud-info-label"><i class="bi bi-calendar-x"></i> Until</span>
+                    <span class="ud-info-value" style="color:#fbbf24;font-size:.78rem;">{{ user.suspended_until.strftime('%b %d, %Y %I:%M %p') }}</span>
+                </div>
+                {% endif %}
+                {% if user.rejection_reason %}
+                <div class="ud-info-row">
+                    <span class="ud-info-label"><i class="bi bi-x-octagon"></i> Rejection</span>
+                    <span class="ud-info-value" style="color:#f87171;font-size:.78rem;">{{ user.rejection_reason }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Account Actions -->
+        {% if not user.is_superadmin %}
+        <div class="ud-actions-panel mt-3 ud-fadein ud-fadein-2">
+            <div class="ud-actions-header">
+                <i class="bi bi-shield-lock" style="color:#818cf8;"></i> Account Actions
+            </div>
+            <div class="ud-actions-body">
+                {% if user.approval_status == 'pending' %}
+                <form method="POST" action="{{ url_for('admin.approve_user', user_id=user.id) }}" id="approveForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="button" class="ud-action-btn ud-btn-success" onclick="adminConfirm({theme:'success', title:'Approve Registration', message:'Allow <strong style=color:#4ade80>{{ user.full_name }}</strong> to access the system?', confirmText:'Approve', confirmIcon:'bi-check-circle-fill', form:document.getElementById('approveForm')})">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Approve Registration</span>
+                    </button>
+                </form>
+                {% endif %}
+
+                {% if user.account_status in ('suspended', 'locked') %}
+                <form method="POST" action="{{ url_for('admin.reactivate_user', user_id=user.id) }}" id="reactivateForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="button" class="ud-action-btn ud-btn-success" onclick="adminConfirm({theme:'success', title:'Reactivate Account', message:'Re-enable access for <strong style=color:#4ade80>{{ user.full_name }}</strong>?<br><span style=font-size:.75rem;color:#64748b>They will be able to log in again immediately.</span>', confirmText:'Reactivate', confirmIcon:'bi-arrow-counterclockwise', form:document.getElementById('reactivateForm')})">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        <span>Enable / Reactivate Account</span>
+                    </button>
+                </form>
+                {% endif %}
+
+                {% if user.account_status == 'active' %}
+                <button class="ud-action-btn ud-btn-warning" data-bs-toggle="modal" data-bs-target="#suspendModal">
+                    <i class="bi bi-pause-circle-fill"></i>
+                    <span>Suspend Account</span>
+                </button>
+                <button class="ud-action-btn ud-btn-lock" data-bs-toggle="modal" data-bs-target="#lockModal">
+                    <i class="bi bi-lock-fill"></i>
+                    <span>Lock Account</span>
+                </button>
+                {% endif %}
+
+                {% if user.account_status != 'removed' %}
+                <button type="button" class="ud-action-btn ud-btn-danger" onclick="openDeleteModal()">
+                    <i class="bi bi-trash3-fill"></i>
+                    <span>Delete Account Permanently</span>
+                </button>
+                {% endif %}
+
+                <a href="{{ url_for('admin.chat_room', user_id=user.id) }}" class="ud-action-btn ud-btn-info">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <span>Open Chat</span>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ═══ RIGHT COLUMN: Role & Credentials ═══ -->
+    <div class="col-lg-7">
+        <!-- Change Role -->
+        {% if not user.is_superadmin %}
+        <div class="ud-cred-card mb-3 ud-fadein ud-fadein-3">
+            <div class="ud-cred-header">
+                <div class="cred-icon" style="background:rgba(139,92,246,.12);color:#a78bfa;">
+                    <i class="bi bi-person-badge-fill"></i>
+                </div>
+                User Role
+                <span class="ms-auto ud-badge" style="background:{% if user.role == 'admin' %}rgba(239,68,68,.1);color:#f87171{% elif user.role == 'accountant' %}rgba(59,130,246,.1);color:#60a5fa{% else %}rgba(34,197,94,.1);color:#4ade80{% endif %};font-size:.65rem;">
+                    <i class="bi {% if user.role == 'admin' %}bi-shield-fill{% elif user.role == 'accountant' %}bi-calculator{% else %}bi-eye{% endif %}"></i>
+                    {{ user.role|title }}
+                </span>
+            </div>
+            <div class="ud-cred-body">
+                <form method="POST" action="{{ url_for('admin.change_role', user_id=user.id) }}" id="roleForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="d-flex flex-column gap-2 mb-3">
+                        {% for role_val, role_label, role_icon, role_desc, role_color in [
+                            ('admin', 'Admin', 'bi-shield-fill', 'Full access to all features, can manage settings', '#f87171'),
+                            ('accountant', 'Accountant', 'bi-calculator', 'Can create and manage transactions, reports', '#60a5fa'),
+                            ('viewer', 'Viewer', 'bi-eye', 'Read-only access to view data and reports', '#4ade80')
+                        ] %}
+                        <label class="d-flex align-items-center gap-3 p-3" style="background:var(--admin-bg);border:2px solid {% if user.role == role_val %}{{ role_color }}40{% else %}var(--admin-border){% endif %};border-radius:12px;cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='{{ role_color }}30'" onmouseout="this.style.borderColor='{% if user.role == role_val %}{{ role_color }}40{% else %}var(--admin-border){% endif %}'">
+                            <input type="radio" name="new_role" value="{{ role_val }}" {% if user.role == role_val %}checked{% endif %} style="accent-color:{{ role_color }};width:16px;height:16px;cursor:pointer;">
+                            <div style="width:34px;height:34px;border-radius:10px;background:{{ role_color }}15;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="bi {{ role_icon }}" style="color:{{ role_color }};font-size:.9rem;"></i>
+                            </div>
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:.85rem;color:#fff;">{{ role_label }}</div>
+                                <div style="font-size:.72rem;color:#94a3b8;">{{ role_desc }}</div>
+                            </div>
+                            {% if user.role == role_val %}
+                            <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:{{ role_color }};padding:3px 8px;border-radius:6px;background:{{ role_color }}15;">Current</span>
+                            {% endif %}
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="ud-submit-btn" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;box-shadow:0 4px 12px rgba(139,92,246,.3);" onclick="adminConfirm({theme:'info', title:'Change User Role', message:'Update role for <strong style=color:#818cf8>{{ user.full_name }}</strong>?<br><span style=font-size:.75rem;color:#64748b>This will change their access permissions immediately.</span>', confirmText:'Update Role', confirmIcon:'bi-person-badge-fill', form:document.getElementById('roleForm')})">
+                        <i class="bi bi-arrow-repeat"></i> Update Role
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Change Email -->
+        <div class="ud-cred-card mb-3 ud-fadein ud-fadein-3">
+            <div class="ud-cred-header">
+                <div class="cred-icon" style="background:rgba(99,102,241,.12);color:#818cf8;">
+                    <i class="bi bi-envelope-fill"></i>
+                </div>
+                Change Email
+            </div>
+            <div class="ud-cred-body">
+                <form method="POST" action="{{ url_for('admin.change_email', user_id=user.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="ud-input-group">
+                        <label class="ud-input-label">Current Email</label>
+                        <input type="email" class="ud-form-control" value="{{ user.email }}" disabled>
+                    </div>
+                    <div class="ud-input-group">
+                        <label class="ud-input-label">New Email</label>
+                        <input type="email" name="new_email" class="ud-form-control" placeholder="Enter new email address" required>
+                    </div>
+                    <button type="button" class="ud-submit-btn ud-submit-email" onclick="adminConfirm({theme:'info', title:'Update Email', message:'Change email address for <strong style=color:#818cf8>{{ user.full_name }}</strong>?', confirmText:'Update Email', confirmIcon:'bi-envelope-check-fill', form:this.closest('form')})">
+                        <i class="bi bi-check-lg"></i> Update Email
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Change Password -->
+        <div class="ud-cred-card ud-fadein ud-fadein-4">
+            <div class="ud-cred-header">
+                <div class="cred-icon" style="background:rgba(245,158,11,.12);color:#fbbf24;">
+                    <i class="bi bi-key-fill"></i>
+                </div>
+                Change Password
+            </div>
+            <div class="ud-cred-body">
+                <form method="POST" action="{{ url_for('admin.change_password', user_id=user.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="ud-input-group">
+                        <label class="ud-input-label">New Password</label>
+                        <div style="position:relative;">
+                            <input type="password" name="new_password" id="newPwdInput" class="ud-form-control" placeholder="Min 8 characters" required minlength="8" style="padding-right:40px;">
+                            <button type="button" onclick="toggleNewPwd()" class="ud-pwd-toggle" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;">
+                                <i id="newPwdIcon" class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        <div class="ud-form-hint"><i class="bi bi-info-circle me-1"></i>Must be at least 8 characters.</div>
+                    </div>
+                    <button type="button" class="ud-submit-btn ud-submit-password" onclick="adminConfirm({theme:'warning', title:'Reset Password', message:'Reset the password for <strong style=color:#fbbf24>{{ user.full_name }}</strong>?<br><span style=font-size:.75rem;color:#64748b>The user will need to use the new password to log in.</span>', confirmText:'Reset Password', confirmIcon:'bi-shield-check', form:this.closest('form')})">
+                        <i class="bi bi-shield-check"></i> Reset Password
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePwd() {
+    const el = document.getElementById('pwd-display');
+    const icon = document.getElementById('pwd-icon');
+    if (el.dataset.hidden !== 'true') {
+        el.dataset.original = el.textContent;
+        el.textContent = '••••••••';
+        el.dataset.hidden = 'true';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        el.textContent = el.dataset.original;
+        el.dataset.hidden = 'false';
+        icon.className = 'bi bi-eye';
+    }
+}
+function toggleNewPwd() {
+    const inp = document.getElementById('newPwdInput');
+    const icon = document.getElementById('newPwdIcon');
+    if (inp.type === 'password') { inp.type='text'; icon.className='bi bi-eye-slash'; }
+    else { inp.type='password'; icon.className='bi bi-eye'; }
+}
+</script>
+
+{% if not user.is_superadmin %}
+<!-- Suspend Modal -->
+<div class="modal fade ud-modal" id="suspendModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('admin.suspend_user', user_id=user.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <span class="d-flex align-items-center justify-content-center" style="width:28px;height:28px;border-radius:8px;background:rgba(245,158,11,.12);"><i class="bi bi-pause-circle-fill" style="color:#fbbf24;font-size:.85rem;"></i></span>
+                        Suspend {{ user.full_name }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="p-3 rounded-3 mb-3" style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.12);">
+                        <p class="mb-0" style="font-size:.8rem;color:#fbbf24;"><i class="bi bi-info-circle me-1"></i>This is a temporary restriction. The user cannot log in during suspension. Their account will auto-reactivate after the specified duration.</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="ud-input-label">Suspension Duration</label>
+                        <select name="days" class="ud-form-control" style="cursor:pointer;">
+                            <option value="1">1 day</option>
+                            <option value="3">3 days</option>
+                            <option value="7" selected>7 days</option>
+                            <option value="14">14 days</option>
+                            <option value="30">30 days</option>
+                            <option value="60">60 days</option>
+                            <option value="90">90 days</option>
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label class="ud-input-label">Reason for Suspension</label>
+                        <textarea name="reason" class="ud-form-control" rows="3" placeholder="Explain why this account is being suspended..." style="resize:vertical;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm" data-bs-dismiss="modal" style="background:var(--admin-surface2);color:var(--admin-text-muted);border:1px solid var(--admin-border);">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background:linear-gradient(135deg,#d97706,#f59e0b);color:#000;font-weight:600;border:none;">
+                        <i class="bi bi-pause-circle me-1"></i>Suspend Account
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Lock Modal -->
+<div class="modal fade ud-modal" id="lockModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('admin.lock_user', user_id=user.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <span class="d-flex align-items-center justify-content-center" style="width:28px;height:28px;border-radius:8px;background:rgba(139,92,246,.12);"><i class="bi bi-lock-fill" style="color:#a78bfa;font-size:.85rem;"></i></span>
+                        Lock {{ user.full_name }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="p-3 rounded-3 mb-3" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.12);">
+                        <p class="mb-0" style="font-size:.8rem;color:#f87171;"><i class="bi bi-exclamation-triangle me-1"></i>This user will <strong>not</strong> be able to log in while locked. Only you (admin) can unlock their account.</p>
+                    </div>
+                    <div>
+                        <label class="ud-input-label">Reason for Locking</label>
+                        <textarea name="reason" class="ud-form-control" rows="3" placeholder="Explain why this account is being locked..." style="resize:vertical;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm" data-bs-dismiss="modal" style="background:var(--admin-surface2);color:var(--admin-text-muted);border:1px solid var(--admin-border);">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;font-weight:600;border:none;">
+                        <i class="bi bi-lock me-1"></i>Lock Account
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- ═══ DELETE ACCOUNT MODAL ═══ -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+        <div class="modal-content" style="background:var(--admin-surface);border:1px solid rgba(239,68,68,.25);border-radius:20px;color:var(--admin-text);box-shadow:0 25px 80px rgba(0,0,0,.6),0 0 40px rgba(239,68,68,.08);overflow:hidden;">
+
+            <!-- Red accent bar -->
+            <div style="height:4px;background:linear-gradient(90deg,#dc2626,#ef4444,#f87171,#ef4444,#dc2626);"></div>
+
+            <!-- Header -->
+            <div style="padding:1.5rem 1.75rem 0;">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#dc2626,#ef4444);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(239,68,68,.35);">
+                            <i class="bi bi-exclamation-triangle-fill" style="color:#fff;font-size:1.1rem;"></i>
+                        </div>
+                        <div>
+                            <h5 style="margin:0;font-size:1.05rem;font-weight:700;color:#fff;">Delete Account</h5>
+                            <p style="margin:0;font-size:.72rem;color:#94a3b8;">This action requires careful consideration</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="font-size:.65rem;opacity:.5;"></button>
+                </div>
+            </div>
+
+            <!-- Loading state -->
+            <div id="delModalLoading" style="padding:3rem;text-align:center;">
+                <div class="spinner-border spinner-border-sm text-danger" role="status"></div>
+                <p style="margin-top:.75rem;font-size:.82rem;color:#94a3b8;">Analyzing user data...</p>
+            </div>
+
+            <!-- Content (hidden until loaded) -->
+            <div id="delModalContent" style="display:none;">
+                <!-- User info card -->
+                <div style="margin:0 1.75rem;padding:1rem 1.25rem;background:var(--admin-bg);border-radius:14px;border:1px solid var(--admin-border);">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:.85rem;flex-shrink:0;">
+                            {{ user.full_name[:2]|upper }}
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;color:#fff;font-size:.9rem;">{{ user.full_name }}</div>
+                            <div style="font-size:.75rem;color:#64748b;">{{ user.email }}</div>
+                        </div>
+                        <span id="delUserTypeBadge" style="font-size:.68rem;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:.3px;flex-shrink:0;"></span>
+                    </div>
+                </div>
+
+                <!-- User age info alert -->
+                <div id="delUserAgeAlert" style="margin:1rem 1.75rem 0;padding:.85rem 1.1rem;border-radius:12px;font-size:.78rem;display:flex;align-items:start;gap:10px;line-height:1.55;">
+                </div>
+
+                <!-- Data summary -->
+                <div id="delDataSummary" style="margin:1rem 1.75rem 0;">
+                    <div style="font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px;">
+                        <i class="bi bi-database me-1"></i> Data Summary
+                    </div>
+                    <div id="delDataGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    </div>
+                    <div id="delTotalRecords" style="margin-top:8px;padding:8px 12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.12);border-radius:10px;font-size:.75rem;color:#f87171;text-align:center;font-weight:600;">
+                    </div>
+                </div>
+
+                <!-- Decision section -->
+                <div style="margin:1.25rem 1.75rem 0;">
+                    <div style="font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:10px;">
+                        <i class="bi bi-signpost-split me-1"></i> Choose Delete Method
+                    </div>
+
+                    <!-- Option 1: Allow Recovery (soft delete) -->
+                    <div id="delOptionSoft" class="del-option" onclick="selectDeleteMode('soft')" style="padding:1rem 1.15rem;background:var(--admin-bg);border:2px solid var(--admin-border);border-radius:14px;cursor:pointer;transition:all .25s ease;margin-bottom:8px;position:relative;overflow:hidden;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div style="width:36px;height:36px;border-radius:10px;background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .25s;">
+                                <i class="bi bi-arrow-counterclockwise" style="color:#4ade80;font-size:.95rem;"></i>
+                            </div>
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:.85rem;color:#fff;margin-bottom:2px;">Allow Recovery</div>
+                                <div style="font-size:.73rem;color:#94a3b8;line-height:1.5;">Delete the account but <strong style="color:#4ade80;">preserve all data</strong>. If the user re-registers with the same email, they can choose to recover their previous data.</div>
+                            </div>
+                            <div class="del-radio" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--admin-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .25s;margin-top:2px;">
+                                <div style="width:10px;height:10px;border-radius:50%;background:transparent;transition:all .25s;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Option 2: Delete Everything (hard delete) -->
+                    <div id="delOptionHard" class="del-option" onclick="selectDeleteMode('hard')" style="padding:1rem 1.15rem;background:var(--admin-bg);border:2px solid var(--admin-border);border-radius:14px;cursor:pointer;transition:all .25s ease;position:relative;overflow:hidden;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div style="width:36px;height:36px;border-radius:10px;background:rgba(239,68,68,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .25s;">
+                                <i class="bi bi-fire" style="color:#f87171;font-size:.95rem;"></i>
+                            </div>
+                            <div style="flex:1;">
+                                <div style="font-weight:700;font-size:.85rem;color:#fff;margin-bottom:2px;">Delete Everything</div>
+                                <div style="font-size:.73rem;color:#94a3b8;line-height:1.5;">Permanently remove the account and <strong style="color:#f87171;">wipe all data</strong> — invoices, expenses, journals, customers, and everything. <span style="color:#f87171;">Cannot be undone.</span></div>
+                            </div>
+                            <div class="del-radio" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--admin-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .25s;margin-top:2px;">
+                                <div style="width:10px;height:10px;border-radius:50%;background:transparent;transition:all .25s;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div style="padding:1.25rem 1.75rem;margin-top:.5rem;border-top:1px solid var(--admin-border);display:flex;justify-content:flex-end;gap:10px;">
+                    <button type="button" class="btn btn-sm" data-bs-dismiss="modal" style="background:var(--admin-bg);color:var(--admin-text-muted);border:1px solid var(--admin-border);border-radius:10px;font-size:.8rem;font-weight:600;padding:.55rem 1.5rem;">
+                        Cancel
+                    </button>
+                    <button type="button" id="delConfirmBtn" onclick="confirmDelete()" disabled style="background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fca5a5;border:none;border-radius:10px;font-size:.8rem;font-weight:700;padding:.55rem 1.5rem;cursor:not-allowed;opacity:.5;transition:all .25s;display:inline-flex;align-items:center;gap:6px;">
+                        <i class="bi bi-trash3-fill"></i> <span id="delConfirmText">Select an option</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete form (hidden) -->
+<form id="deleteForm" method="POST" action="{{ url_for('admin.remove_user', user_id=user.id) }}" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="delete_mode" id="deleteFormMode" value="">
+</form>
+
+<style>
+.del-option.selected { border-color:rgba(239,68,68,.5) !important; background:rgba(239,68,68,.04) !important; }
+.del-option.selected-soft { border-color:rgba(34,197,94,.5) !important; background:rgba(34,197,94,.04) !important; }
+.del-option:hover:not(.selected):not(.selected-soft) { border-color:rgba(255,255,255,.1); background:rgba(255,255,255,.02); }
+.del-data-item {
+    padding:6px 10px; border-radius:8px;
+    background:rgba(255,255,255,.02); border:1px solid var(--admin-border);
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:.75rem;
+}
+.del-data-item .label { color:#94a3b8; }
+.del-data-item .count { font-weight:700; color:#e2e8f0; }
+.del-data-item .count.has { color:#f87171; }
+</style>
+
+<script>
+let selectedDeleteMode = null;
+
+function openDeleteModal() {
+    selectedDeleteMode = null;
+    document.getElementById('delModalLoading').style.display = 'block';
+    document.getElementById('delModalContent').style.display = 'none';
+    document.getElementById('delConfirmBtn').disabled = true;
+    document.getElementById('delConfirmBtn').style.opacity = '.5';
+    document.getElementById('delConfirmBtn').style.cursor = 'not-allowed';
+    document.getElementById('delConfirmText').textContent = 'Select an option';
+    document.querySelectorAll('.del-option').forEach(el => el.classList.remove('selected','selected-soft'));
+
+    const modal = new bootstrap.Modal(document.getElementById('deleteAccountModal'));
+    modal.show();
+
+    // Fetch user data info
+    fetch('{{ url_for("admin.delete_info", user_id=user.id) }}')
+        .then(r => r.json())
+        .then(data => {
+            // User type badge
+            const badge = document.getElementById('delUserTypeBadge');
+            if (data.is_old_user) {
+                badge.textContent = 'OLD USER';
+                badge.style.background = 'rgba(245,158,11,.12)';
+                badge.style.color = '#fbbf24';
+            } else {
+                badge.textContent = 'NEW USER';
+                badge.style.background = 'rgba(34,197,94,.12)';
+                badge.style.color = '#4ade80';
+            }
+
+            // User age alert
+            const ageAlert = document.getElementById('delUserAgeAlert');
+            if (data.is_old_user) {
+                ageAlert.style.background = 'rgba(245,158,11,.06)';
+                ageAlert.style.border = '1px solid rgba(245,158,11,.15)';
+                ageAlert.innerHTML = `
+                    <i class="bi bi-clock-history" style="color:#fbbf24;font-size:1rem;margin-top:1px;flex-shrink:0;"></i>
+                    <div>
+                        <strong style="color:#fbbf24;">This is an old user</strong> registered since <strong style="color:#fbbf24;">${data.registered_on_display}</strong> (${data.days_since_registration} days ago).
+                        <span style="color:#cbd5e1;">Last login: ${data.last_login}.</span>
+                        <br><span style="color:#e2e8f0;">Please consider whether they should be allowed to recover their data if they return.</span>
+                    </div>`;
+            } else {
+                ageAlert.style.background = 'rgba(34,197,94,.06)';
+                ageAlert.style.border = '1px solid rgba(34,197,94,.15)';
+                ageAlert.innerHTML = `
+                    <i class="bi bi-person-plus" style="color:#4ade80;font-size:1rem;margin-top:1px;flex-shrink:0;"></i>
+                    <div>
+                        <strong style="color:#4ade80;">This is a new user</strong> registered on <strong style="color:#4ade80;">${data.registered_on_display}</strong> (${data.days_since_registration} days ago).
+                        <span style="color:#cbd5e1;">Last login: ${data.last_login}.</span>
+                    </div>`;
+            }
+
+            // Data grid
+            const grid = document.getElementById('delDataGrid');
+            const labels = {
+                invoices: 'Invoices', bills: 'Bills', expenses: 'Expenses', journals: 'Journals',
+                customers: 'Customers', vendors: 'Vendors', products: 'Products', accounts: 'Accounts',
+                categories: 'Categories', budgets: 'Budgets', credit_notes: 'Credit Notes',
+                debit_notes: 'Debit Notes', payments_received: 'Payments In', payments_made: 'Payments Out'
+            };
+            grid.innerHTML = '';
+            for (const [key, label] of Object.entries(labels)) {
+                const c = data.counts[key] || 0;
+                grid.innerHTML += `<div class="del-data-item"><span class="label">${label}</span><span class="count ${c > 0 ? 'has' : ''}">${c}</span></div>`;
+            }
+
+            // Total records
+            document.getElementById('delTotalRecords').innerHTML = data.has_data
+                ? `<i class="bi bi-exclamation-diamond me-1"></i> Total: <strong>${data.total_records}</strong> records will be affected`
+                : `<i class="bi bi-check-circle me-1" style="color:#4ade80;"></i> <span style="color:#4ade80;">No data records found — safe to delete</span>`;
+
+            // Show content
+            document.getElementById('delModalLoading').style.display = 'none';
+            document.getElementById('delModalContent').style.display = 'block';
+        })
+        .catch(() => {
+            document.getElementById('delModalLoading').innerHTML = '<p style="color:#f87171;font-size:.85rem;"><i class="bi bi-exclamation-circle me-1"></i>Failed to load user data. Please try again.</p>';
+        });
+}
+
+function selectDeleteMode(mode) {
+    selectedDeleteMode = mode;
+    document.querySelectorAll('.del-option').forEach(el => el.classList.remove('selected','selected-soft'));
+
+    const btn = document.getElementById('delConfirmBtn');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+
+    if (mode === 'soft') {
+        document.getElementById('delOptionSoft').classList.add('selected-soft');
+        document.getElementById('delOptionSoft').querySelector('.del-radio div').style.background = '#22c55e';
+        document.getElementById('delOptionHard').querySelector('.del-radio div').style.background = 'transparent';
+        btn.style.background = 'linear-gradient(135deg,#15803d,#16a34a)';
+        btn.style.color = '#fff';
+        btn.style.boxShadow = '0 4px 16px rgba(34,197,94,.3)';
+        document.getElementById('delConfirmText').textContent = 'Delete & Allow Recovery';
+    } else {
+        document.getElementById('delOptionHard').classList.add('selected');
+        document.getElementById('delOptionHard').querySelector('.del-radio div').style.background = '#ef4444';
+        document.getElementById('delOptionSoft').querySelector('.del-radio div').style.background = 'transparent';
+        btn.style.background = 'linear-gradient(135deg,#dc2626,#ef4444)';
+        btn.style.color = '#fff';
+        btn.style.boxShadow = '0 4px 16px rgba(239,68,68,.3)';
+        document.getElementById('delConfirmText').textContent = 'Delete Forever';
+    }
+}
+
+function confirmDelete() {
+    if (!selectedDeleteMode) return;
+    document.getElementById('deleteFormMode').value = selectedDeleteMode;
+    document.getElementById('deleteForm').submit();
+}
+</script>
+{% endblock %}

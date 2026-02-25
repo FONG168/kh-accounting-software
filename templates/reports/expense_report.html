@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Expense Report{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-pie-chart me-2"></i>Expense Report</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+        <button onclick="exportReportPDF('Expense_Report')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">From</label>
+                <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start.isoformat() }}">
+            </div>
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">To</label>
+                <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end.isoformat() }}">
+            </div>
+            <div class="col-12 col-sm-auto"><button class="btn btn-sm btn-primary">Apply</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4">
+        <div class="stat-card bg-danger-gradient">
+            <div class="stat-label">Total Expenses</div>
+            <div class="stat-value">{{ currency_symbol }}{{ "{:,.2f}".format(total_expenses) }}</div>
+            <div class="stat-icon"><i class="bi bi-credit-card"></i></div>
+        </div>
+    </div>
+</div>
+
+<!-- By Category -->
+{% if by_category %}
+<div class="card mb-3">
+    <div class="card-header">Expenses by Category</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table mb-0">
+            <thead><tr><th>Category</th><th class="text-end">Count</th><th class="text-end">Amount</th><th class="text-end">% of Total</th></tr></thead>
+            <tbody>
+                {% for cat in by_category %}
+                <tr>
+                    <td class="fw-medium">{{ cat.category or 'Uncategorized' }}</td>
+                    <td class="text-end">{{ cat.count }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(cat.total) }}</td>
+                    <td class="text-end">{{ "{:.1f}%".format(cat.total / total_expenses * 100) if total_expenses else '0%' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Expense List -->
+<div class="card">
+    <div class="card-header">Expense Details</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr><th>Exp #</th><th>Date</th><th>Category</th><th>Description</th><th>Vendor</th><th class="text-end">Amount</th></tr>
+            </thead>
+            <tbody>
+                {% for e in expenses %}
+                <tr>
+                    <td class="fw-medium">{{ e.expense_number }}</td>
+                    <td>{{ e.date.strftime('%b %d, %Y') }}</td>
+                    <td>{{ e.category or '—' }}</td>
+                    <td>{{ (e.description[:40] + '...') if e.description and e.description|length > 40 else (e.description or '—') }}</td>
+                    <td>{{ e.vendor.name if e.vendor else '—' }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(e.amount) }}</td>
+                </tr>
+                {% endfor %}
+                {% if not expenses %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No expenses in this period.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

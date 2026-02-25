@@ -1,0 +1,657 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - KH Accounting Software Enterprise{% endblock %}
+{% block content %}
+<!-- HEADER -->
+<div class="dash-header">
+    <div>
+        <h2 class="dash-title">{{ greeting }}, {{ user.full_name.split(' ')[0] }}</h2>
+        <p class="dash-subtitle">{{ today.strftime('%A, %B %d, %Y') }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('sales.create') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Invoice</a>
+        <a href="{{ url_for('purchases.create') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Bill</a>
+    </div>
+</div>
+
+<!-- ADMIN ANNOUNCEMENTS -->
+{% if announcements %}
+<div class="d-flex flex-column gap-2 mb-3">
+    {% for ann in announcements %}
+    <div class="d-flex align-items-start gap-3 p-3 rounded-3"
+        style="background:{% if ann.type == 'danger' %}rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15){% elif ann.type == 'warning' %}rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15){% elif ann.type == 'success' %}rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.15){% else %}rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.15){% endif %};">
+        <i class="bi {% if ann.type == 'danger' %}bi-exclamation-triangle-fill{% elif ann.type == 'warning' %}bi-exclamation-circle-fill{% elif ann.type == 'success' %}bi-check-circle-fill{% else %}bi-info-circle-fill{% endif %} mt-1"
+            style="font-size:1.1rem;color:{% if ann.type == 'danger' %}#f87171{% elif ann.type == 'warning' %}#fbbf24{% elif ann.type == 'success' %}#4ade80{% else %}#60a5fa{% endif %};flex-shrink:0;"></i>
+        <div style="flex:1;">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <strong style="font-size:.88rem;">{{ ann.title }}</strong>
+                {% if ann.is_pinned %}<i class="bi bi-pin-fill" style="color:#fbbf24;font-size:.7rem;" title="Pinned"></i>{% endif %}
+            </div>
+            <p style="font-size:.82rem;color:var(--text-secondary);margin-bottom:4px;line-height:1.5;">{{ ann.message }}</p>
+            <small style="color:var(--text-muted);font-size:.7rem;">{{ ann.created_at.strftime('%b %d, %Y') }}</small>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ALERTS -->
+{% if overdue_invoices or overdue_bills %}
+<div class="d-flex flex-column gap-2 mb-3">
+    {% if overdue_invoices %}
+    <div class="dash-alert dash-alert-danger">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span><strong>{{ overdue_invoices|length }}</strong> overdue invoice{{ 's' if overdue_invoices|length > 1 else '' }} &mdash;
+            <strong>{{ currency }}{{ "{:,.2f}".format(overdue_invoices|sum(attribute='balance_due')) }}</strong></span>
+        <a href="{{ url_for('sales.index') }}" class="ms-auto btn btn-sm btn-outline-danger">View</a>
+    </div>
+    {% endif %}
+    {% if overdue_bills %}
+    <div class="dash-alert dash-alert-warning">
+        <i class="bi bi-exclamation-circle-fill"></i>
+        <span><strong>{{ overdue_bills|length }}</strong> overdue bill{{ 's' if overdue_bills|length > 1 else '' }} &mdash;
+            <strong>{{ currency }}{{ "{:,.2f}".format(overdue_bills|sum(attribute='balance_due')) }}</strong></span>
+        <a href="{{ url_for('purchases.index') }}" class="ms-auto btn btn-sm btn-outline-warning">View</a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- KPI CARDS -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background:rgba(99,102,241,0.12);color:#6366f1;">
+                <i class="bi bi-graph-up-arrow"></i>
+            </div>
+            <div class="kpi-body">
+                <span class="kpi-label">Revenue <small>(MTD)</small></span>
+                <span class="kpi-value">{{ currency }}{{ "{:,.0f}".format(monthly_revenue) }}</span>
+                <span class="kpi-change {% if revenue_growth >= 0 %}kpi-up{% else %}kpi-down{% endif %}">
+                    <i class="bi {% if revenue_growth >= 0 %}bi-caret-up-fill{% else %}bi-caret-down-fill{% endif %}"></i>
+                    {{ "{:.1f}".format(revenue_growth|abs) }}%
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card kpi-clickable" onclick="openKpiModal('expensesModal')">
+            <div class="kpi-icon" style="background:rgba(239,68,68,0.12);color:#ef4444;">
+                <i class="bi bi-graph-down-arrow"></i>
+            </div>
+            <div class="kpi-body">
+                <span class="kpi-label">Expenses <small>(MTD)</small></span>
+                <span class="kpi-value">{{ currency }}{{ "{:,.0f}".format(monthly_expenses) }}</span>
+                <span class="kpi-change {% if expense_growth <= 0 %}kpi-up{% else %}kpi-down{% endif %}">
+                    <i class="bi {% if expense_growth >= 0 %}bi-caret-up-fill{% else %}bi-caret-down-fill{% endif %}"></i>
+                    {{ "{:.1f}".format(expense_growth|abs) }}%
+                </span>
+            </div>
+            <i class="bi bi-box-arrow-up-right kpi-drill"></i>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card kpi-clickable" onclick="openKpiModal('receivablesModal')">
+            <div class="kpi-icon" style="background:rgba(245,158,11,0.12);color:#f59e0b;">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div class="kpi-body">
+                <span class="kpi-label">Receivables</span>
+                <span class="kpi-value">{{ currency }}{{ "{:,.0f}".format(total_receivables) }}</span>
+                <span class="kpi-sub">{{ total_invoices_mtd }} invoice{{ 's' if total_invoices_mtd != 1 else '' }} this month</span>
+            </div>
+            <i class="bi bi-box-arrow-up-right kpi-drill"></i>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="kpi-card kpi-clickable" onclick="openKpiModal('cashModal')">
+            <div class="kpi-icon" style="background:rgba(16,185,129,0.12);color:#10b981;">
+                <i class="bi bi-wallet2"></i>
+            </div>
+            <div class="kpi-body">
+                <span class="kpi-label">Cash &amp; Bank</span>
+                <span class="kpi-value">{{ currency }}{{ "{:,.0f}".format(cash_balance) }}</span>
+                <span class="kpi-sub">{{ "{:.1f}".format(profit_margin) }}% profit margin</span>
+            </div>
+            <i class="bi bi-box-arrow-up-right kpi-drill"></i>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN CHART + SIDEBAR -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-8">
+        <div class="dash-card">
+            <div class="dash-card-header">
+                <h6><i class="bi bi-bar-chart-line me-1"></i>Revenue vs Expenses</h6>
+                <div class="chart-legend">
+                    <span><i class="bi bi-circle-fill" style="color:#6366f1;font-size:0.5rem;"></i> Revenue</span>
+                    <span><i class="bi bi-circle-fill" style="color:#ef4444;font-size:0.5rem;"></i> Expenses</span>
+                    <span><i class="bi bi-circle-fill" style="color:#10b981;font-size:0.5rem;"></i> Net Profit</span>
+                </div>
+            </div>
+            <div class="chart-wrap chart-wrap-md"><canvas id="revenueChart"></canvas></div>
+        </div>
+    </div>
+    <div class="col-lg-4 d-flex flex-column gap-3">
+        <div class="dash-card dash-card-accent">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="kpi-label">Net Income (MTD)</span>
+                    <div class="kpi-value-lg {% if net_income >= 0 %}text-success{% else %}text-danger{% endif %}">{{ currency }}{{ "{:,.0f}".format(net_income) }}</div>
+                </div>
+                <div class="kpi-ring {% if net_income >= 0 %}ring-success{% else %}ring-danger{% endif %}">
+                    <i class="bi {% if net_income >= 0 %}bi-arrow-up{% else %}bi-arrow-down{% endif %}"></i>
+                </div>
+            </div>
+        </div>
+        <div class="dash-card flex-grow-1">
+            <h6 class="dash-card-title"><i class="bi bi-safe me-1"></i>Cash Breakdown</h6>
+            <div class="cash-list">
+                <div class="cash-item"><span class="cash-dot" style="background:#10b981;"></span><span>Cash on Hand</span><strong>{{ currency }}{{ "{:,.0f}".format(cash_on_hand) }}</strong></div>
+                <div class="cash-item"><span class="cash-dot" style="background:#6366f1;"></span><span>Bank Account</span><strong>{{ currency }}{{ "{:,.0f}".format(bank_balance) }}</strong></div>
+                <div class="cash-item"><span class="cash-dot" style="background:#f59e0b;"></span><span>Petty Cash</span><strong>{{ currency }}{{ "{:,.0f}".format(petty_cash_balance) }}</strong></div>
+            </div>
+            <div class="cash-total"><span>Total Liquid</span><strong>{{ currency }}{{ "{:,.0f}".format(cash_balance) }}</strong></div>
+        </div>
+        <div class="dash-card">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="kpi-label">Payables</span>
+                    <div class="kpi-value-sm">{{ currency }}{{ "{:,.0f}".format(total_payables) }}</div>
+                </div>
+                <span class="badge bg-secondary bg-opacity-10 text-secondary" style="font-size:0.7rem;">{{ total_bills_mtd }} bills MTD</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECONDARY CHARTS ROW -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="dash-card">
+            <h6 class="dash-card-title"><i class="bi bi-pie-chart me-1 text-danger"></i>Expense Breakdown <small class="text-muted">(YTD)</small></h6>
+            {% if expense_cat_labels != '[]' %}
+            <div class="chart-wrap chart-wrap-sm"><canvas id="expenseChart"></canvas></div>
+            {% else %}
+            <div class="empty-state"><i class="bi bi-pie-chart"></i><p>No expenses recorded yet</p></div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="dash-card">
+            <h6 class="dash-card-title"><i class="bi bi-arrow-left-right me-1 text-success"></i>Cash Flow <small class="text-muted">(6 mo)</small></h6>
+            <div class="chart-wrap chart-wrap-sm"><canvas id="cashFlowChart"></canvas></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="dash-card">
+            <h6 class="dash-card-title"><i class="bi bi-heart-pulse me-1 text-danger"></i>Financial Health</h6>
+            <div class="health-list">
+                <div class="health-item">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="health-label">Current Ratio</span>
+                        <span class="health-val {% if current_ratio >= 1.5 %}text-success{% elif current_ratio >= 1 %}text-warning{% else %}text-danger{% endif %}">{{ "{:.2f}".format(current_ratio) }}</span>
+                    </div>
+                    <div class="progress" style="height:4px;"><div class="progress-bar {% if current_ratio >= 1.5 %}bg-success{% elif current_ratio >= 1 %}bg-warning{% else %}bg-danger{% endif %}" style="width:{{ [current_ratio / 3 * 100, 100]|min }}%"></div></div>
+                </div>
+                <div class="health-item">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="health-label">Quick Ratio</span>
+                        <span class="health-val {% if quick_ratio >= 1 %}text-success{% elif quick_ratio >= 0.5 %}text-warning{% else %}text-danger{% endif %}">{{ "{:.2f}".format(quick_ratio) }}</span>
+                    </div>
+                    <div class="progress" style="height:4px;"><div class="progress-bar {% if quick_ratio >= 1 %}bg-success{% elif quick_ratio >= 0.5 %}bg-warning{% else %}bg-danger{% endif %}" style="width:{{ [quick_ratio / 2 * 100, 100]|min }}%"></div></div>
+                </div>
+                <div class="health-item">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="health-label">Working Capital</span>
+                        <span class="health-val {% if working_capital > 0 %}text-success{% else %}text-danger{% endif %}">{{ currency }}{{ "{:,.0f}".format(working_capital) }}</span>
+                    </div>
+                    <div class="progress" style="height:4px;"><div class="progress-bar {% if working_capital > 0 %}bg-success{% else %}bg-danger{% endif %}" style="width:{{ 100 if working_capital > 0 else 15 }}%"></div></div>
+                </div>
+                <div class="health-item">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="health-label">Profit Margin</span>
+                        <span class="health-val {% if profit_margin >= 20 %}text-success{% elif profit_margin >= 5 %}text-warning{% else %}text-danger{% endif %}">{{ "{:.1f}".format(profit_margin) }}%</span>
+                    </div>
+                    <div class="progress" style="height:4px;"><div class="progress-bar {% if profit_margin >= 20 %}bg-success{% elif profit_margin >= 5 %}bg-warning{% else %}bg-danger{% endif %}" style="width:{{ [profit_margin|abs, 100]|min }}%"></div></div>
+                </div>
+            </div>
+            <div class="health-summary mt-3">
+                <div class="d-flex gap-3 justify-content-center">
+                    <div class="text-center"><div class="fs-6 fw-bold" style="color:var(--accent);">{{ customer_count }}</div><small class="text-muted">Customers</small></div>
+                    <div class="text-center"><div class="fs-6 fw-bold" style="color:#06b6d4;">{{ vendor_count }}</div><small class="text-muted">Vendors</small></div>
+                    <div class="text-center"><div class="fs-6 fw-bold" style="color:#10b981;">{{ product_count }}</div><small class="text-muted">Products</small></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QUICK ACTIONS -->
+<div class="quick-bar mb-4">
+    <span class="quick-label">Quick Actions</span>
+    <a href="{{ url_for('sales.create') }}" class="quick-btn"><i class="bi bi-receipt"></i> Invoice</a>
+    <a href="{{ url_for('purchases.create') }}" class="quick-btn"><i class="bi bi-bag"></i> Bill</a>
+    <a href="{{ url_for('expenses.create') }}" class="quick-btn"><i class="bi bi-cash-coin"></i> Expense</a>
+    <a href="{{ url_for('sales.create_payment') }}" class="quick-btn"><i class="bi bi-cash"></i> Receive Payment</a>
+    <a href="{{ url_for('purchases.create_payment') }}" class="quick-btn"><i class="bi bi-wallet2"></i> Pay Bill</a>
+    <a href="{{ url_for('journal.create') }}" class="quick-btn"><i class="bi bi-journal-text"></i> Journal</a>
+    <a href="{{ url_for('reports.profit_loss') }}" class="quick-btn"><i class="bi bi-file-earmark-bar-graph"></i> P&amp;L</a>
+</div>
+
+<!-- ACTIVITY TABLES -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="dash-card dash-card-table">
+            <div class="dash-card-header">
+                <h6><i class="bi bi-receipt me-1"></i>Recent Invoices</h6>
+                <a href="{{ url_for('sales.index') }}" class="view-all">View All <i class="bi bi-arrow-right"></i></a>
+            </div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Invoice</th><th>Customer</th><th>Status</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                    {% for inv in recent_invoices %}
+                    <tr>
+                        <td><a href="{{ url_for('sales.view', id=inv.id) }}" class="fw-500">{{ inv.invoice_number }}</a></td>
+                        <td>{{ inv.customer.name }}</td>
+                        <td><span class="badge-status badge-{{ inv.status }}">{{ inv.status }}</span></td>
+                        <td class="text-end tabnum">{{ currency }}{{ "{:,.2f}".format(inv.total) }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not recent_invoices %}
+                    <tr><td colspan="4" class="text-center text-muted py-4">No invoices yet</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="dash-card dash-card-table">
+            <div class="dash-card-header">
+                <h6><i class="bi bi-bag me-1"></i>Recent Bills</h6>
+                <a href="{{ url_for('purchases.index') }}" class="view-all">View All <i class="bi bi-arrow-right"></i></a>
+            </div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Bill</th><th>Vendor</th><th>Status</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                    {% for b in recent_bills %}
+                    <tr>
+                        <td><a href="{{ url_for('purchases.view', id=b.id) }}" class="fw-500">{{ b.bill_number }}</a></td>
+                        <td>{{ b.vendor.name }}</td>
+                        <td><span class="badge-status badge-{{ b.status }}">{{ b.status }}</span></td>
+                        <td class="text-end tabnum">{{ currency }}{{ "{:,.2f}".format(b.total) }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not recent_bills %}
+                    <tr><td colspan="4" class="text-center text-muted py-4">No bills yet</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- BOTTOM ROW: Top Customers + Petty Cash -->
+<div class="row g-3 mb-4">
+    {% if top_customers %}
+    <div class="col-lg-6">
+        <div class="dash-card dash-card-table">
+            <div class="dash-card-header">
+                <h6><i class="bi bi-trophy me-1 text-warning"></i>Top Customers <small class="text-muted">(YTD)</small></h6>
+                <a href="{{ url_for('customers.index') }}" class="view-all">All Customers <i class="bi bi-arrow-right"></i></a>
+            </div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>#</th><th>Customer</th><th class="text-center">Invoices</th><th class="text-end">Revenue</th></tr></thead>
+                <tbody>
+                    {% for name, revenue, count in top_customers %}
+                    <tr>
+                        <td><span class="top-rank {% if loop.index == 1 %}rank-gold{% elif loop.index == 2 %}rank-silver{% elif loop.index == 3 %}rank-bronze{% endif %}">{{ loop.index }}</span></td>
+                        <td class="fw-500">{{ name }}</td>
+                        <td class="text-center"><span class="badge bg-secondary bg-opacity-10 text-secondary" style="font-size:0.7rem;">{{ count }}</span></td>
+                        <td class="text-end fw-bold tabnum">{{ currency }}{{ "{:,.2f}".format(revenue) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    <div class="{% if top_customers %}col-lg-6{% else %}col-12{% endif %}">
+        <div class="dash-card dash-card-table">
+            <div class="dash-card-header">
+                <h6><i class="bi bi-cash-coin me-1"></i>Recent Petty Cash</h6>
+                <a href="{{ url_for('expenses.index') }}" class="view-all">View All <i class="bi bi-arrow-right"></i></a>
+            </div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Expense</th><th>Category</th><th class="text-end">Amount</th></tr></thead>
+                <tbody>
+                    {% for e in recent_expenses %}
+                    <tr>
+                        <td>{{ e.expense_number }}</td>
+                        <td>{{ e.category or '&#8212;' }}</td>
+                        <td class="text-end tabnum">{{ currency }}{{ "{:,.2f}".format(e.amount) }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not recent_expenses %}
+                    <tr><td colspan="3" class="text-center text-muted py-4">No expenses yet</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- CONDITIONAL: Low Stock / Upcoming Bills -->
+{% if low_stock or upcoming_bills %}
+<div class="row g-3 mb-4">
+    {% if low_stock %}
+    <div class="col-md-6">
+        <div class="dash-card dash-card-table">
+            <div class="dash-card-header"><h6><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Low Stock</h6></div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Product</th><th class="text-end">On Hand</th><th class="text-end">Reorder</th></tr></thead>
+                <tbody>
+                    {% for p in low_stock %}
+                    <tr>
+                        <td>{{ p.name }}</td>
+                        <td class="text-end text-danger fw-bold">{{ p.quantity_on_hand }} {{ p.unit }}</td>
+                        <td class="text-end">{{ p.reorder_level }} {{ p.unit }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    {% if upcoming_bills %}
+    <div class="col-md-6">
+        <div class="dash-card dash-card-table">
+            <div class="dash-card-header"><h6><i class="bi bi-clock-history me-1 text-warning"></i>Bills Due Soon</h6></div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Bill</th><th>Vendor</th><th>Due</th><th class="text-end">Amount</th></tr></thead>
+                <tbody>
+                    {% for b in upcoming_bills %}
+                    <tr>
+                        <td><a href="{{ url_for('purchases.view', id=b.id) }}">{{ b.bill_number }}</a></td>
+                        <td>{{ b.vendor.name }}</td>
+                        <td>{% set days = (b.due_date - today).days %}{{ b.due_date.strftime('%b %d') }} <span class="badge {% if days <= 3 %}bg-warning text-dark{% else %}bg-info{% endif %}" style="font-size:0.6rem;">{{ days }}d</span></td>
+                        <td class="text-end fw-bold tabnum">{{ currency }}{{ "{:,.2f}".format(b.balance_due) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+<!-- ═══ KPI DRILL-DOWN MODALS ═══════════════════════════ -->
+
+<!-- EXPENSES MODAL -->
+<div class="kpi-modal-backdrop" id="expensesModal" onclick="closeKpiModal(event,'expensesModal')">
+  <div class="kpi-modal">
+    <div class="kpi-modal-header">
+      <h6><i class="bi bi-graph-down-arrow me-2" style="color:#ef4444;"></i>Expenses This Month</h6>
+      <button class="kpi-modal-close" onclick="document.getElementById('expensesModal').classList.remove('open')">&times;</button>
+    </div>
+    <div class="kpi-modal-summary">
+      <div class="kpi-modal-stat">
+        <span class="kpi-modal-stat-label">Bills</span>
+        <span class="kpi-modal-stat-value">{{ currency }}{{ "{:,.2f}".format(mtd_bills|sum(attribute='total')) }}</span>
+      </div>
+      <div class="kpi-modal-stat">
+        <span class="kpi-modal-stat-label">Petty Cash</span>
+        <span class="kpi-modal-stat-value">{{ currency }}{{ "{:,.2f}".format(mtd_petty|sum(attribute='amount')) }}</span>
+      </div>
+      <div class="kpi-modal-stat kpi-modal-stat-total">
+        <span class="kpi-modal-stat-label">Total</span>
+        <span class="kpi-modal-stat-value">{{ currency }}{{ "{:,.2f}".format(monthly_expenses) }}</span>
+      </div>
+    </div>
+    <div class="kpi-modal-body">
+      {% if mtd_bills %}
+      <div class="kpi-modal-section">Bills</div>
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Bill #</th><th>Vendor</th><th>Date</th><th>Status</th><th class="text-end">Total</th></tr></thead>
+        <tbody>
+          {% for b in mtd_bills %}
+          <tr>
+            <td><a href="{{ url_for('purchases.view', id=b.id) }}">{{ b.bill_number }}</a></td>
+            <td>{{ b.vendor.name }}</td>
+            <td>{{ b.date.strftime('%b %d') }}</td>
+            <td><span class="badge-status badge-{{ b.status }}">{{ b.status }}</span></td>
+            <td class="text-end tabnum">{{ currency }}{{ "{:,.2f}".format(b.total) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+      {% if mtd_petty %}
+      <div class="kpi-modal-section">Petty Cash</div>
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Expense #</th><th>Category</th><th>Date</th><th class="text-end">Amount</th></tr></thead>
+        <tbody>
+          {% for e in mtd_petty %}
+          <tr>
+            <td>{{ e.expense_number }}</td>
+            <td>{{ e.category or '\u2014' }}</td>
+            <td>{{ e.date.strftime('%b %d') }}</td>
+            <td class="text-end tabnum">{{ currency }}{{ "{:,.2f}".format(e.amount) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+      {% if not mtd_bills and not mtd_petty %}
+      <div class="text-center text-muted py-4"><i class="bi bi-inbox me-1"></i>No expenses this month</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- RECEIVABLES MODAL -->
+<div class="kpi-modal-backdrop" id="receivablesModal" onclick="closeKpiModal(event,'receivablesModal')">
+  <div class="kpi-modal">
+    <div class="kpi-modal-header">
+      <h6><i class="bi bi-hourglass-split me-2" style="color:#f59e0b;"></i>Outstanding Receivables</h6>
+      <button class="kpi-modal-close" onclick="document.getElementById('receivablesModal').classList.remove('open')">&times;</button>
+    </div>
+    <div class="kpi-modal-summary">
+      <div class="kpi-modal-stat">
+        <span class="kpi-modal-stat-label">Invoices</span>
+        <span class="kpi-modal-stat-value">{{ outstanding_invoices|length }}</span>
+      </div>
+      <div class="kpi-modal-stat kpi-modal-stat-total">
+        <span class="kpi-modal-stat-label">Total Due</span>
+        <span class="kpi-modal-stat-value">{{ currency }}{{ "{:,.2f}".format(total_receivables) }}</span>
+      </div>
+    </div>
+    <div class="kpi-modal-body">
+      {% if outstanding_invoices %}
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Invoice #</th><th>Customer</th><th>Date</th><th>Due</th><th>Status</th><th class="text-end">Balance</th></tr></thead>
+        <tbody>
+          {% for inv in outstanding_invoices %}
+          <tr>
+            <td><a href="{{ url_for('sales.view', id=inv.id) }}">{{ inv.invoice_number }}</a></td>
+            <td>{{ inv.customer.name }}</td>
+            <td>{{ inv.date.strftime('%b %d') }}</td>
+            <td>{% if inv.due_date %}{{ inv.due_date.strftime('%b %d') }}{% else %}&mdash;{% endif %}</td>
+            <td><span class="badge-status badge-{{ inv.status }}">{{ inv.status }}</span></td>
+            <td class="text-end tabnum fw-bold">{{ currency }}{{ "{:,.2f}".format(inv.balance_due) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="text-center text-muted py-4"><i class="bi bi-check-circle me-1"></i>No outstanding receivables</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- CASH & BANK MODAL -->
+<div class="kpi-modal-backdrop" id="cashModal" onclick="closeKpiModal(event,'cashModal')">
+  <div class="kpi-modal kpi-modal-wide">
+    <div class="kpi-modal-header">
+      <h6><i class="bi bi-wallet2 me-2" style="color:#10b981;"></i>Cash &amp; Bank Transactions</h6>
+      <button class="kpi-modal-close" onclick="document.getElementById('cashModal').classList.remove('open')">&times;</button>
+    </div>
+    <div class="kpi-modal-summary">
+      <div class="kpi-modal-stat">
+        <span class="kpi-modal-stat-label">Cash on Hand</span>
+        <span class="kpi-modal-stat-value">{{ currency }}{{ "{:,.2f}".format(cash_on_hand) }}</span>
+      </div>
+      <div class="kpi-modal-stat">
+        <span class="kpi-modal-stat-label">Bank</span>
+        <span class="kpi-modal-stat-value">{{ currency }}{{ "{:,.2f}".format(bank_balance) }}</span>
+      </div>
+      <div class="kpi-modal-stat">
+        <span class="kpi-modal-stat-label">Petty Cash</span>
+        <span class="kpi-modal-stat-value">{{ currency }}{{ "{:,.2f}".format(petty_cash_balance) }}</span>
+      </div>
+      <div class="kpi-modal-stat kpi-modal-stat-total">
+        <span class="kpi-modal-stat-label">Total</span>
+        <span class="kpi-modal-stat-value">{{ currency }}{{ "{:,.2f}".format(cash_balance) }}</span>
+      </div>
+    </div>
+    <div class="kpi-modal-body">
+      <!-- Tabs -->
+      <div class="kpi-tabs">
+        <button class="kpi-tab active" onclick="switchCashTab(this,'cashIn')"><i class="bi bi-arrow-down-circle me-1 text-success"></i>Money In ({{ cash_payments_in|length }})</button>
+        <button class="kpi-tab" onclick="switchCashTab(this,'cashOut')"><i class="bi bi-arrow-up-circle me-1 text-danger"></i>Money Out ({{ cash_payments_out|length }})</button>
+        <button class="kpi-tab" onclick="switchCashTab(this,'cashPetty')"><i class="bi bi-cash-coin me-1 text-warning"></i>Petty Cash ({{ cash_petty_out|length }})</button>
+      </div>
+      <div id="cashIn" class="kpi-tab-panel active">
+        {% if cash_payments_in %}
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Payment #</th><th>Customer</th><th>Date</th><th>Method</th><th class="text-end">Amount</th></tr></thead>
+          <tbody>
+            {% for p in cash_payments_in %}
+            <tr>
+              <td>{{ p.payment_number }}</td>
+              <td>{{ p.customer.name if p.customer else '\u2014' }}</td>
+              <td>{{ p.date.strftime('%b %d, %Y') }}</td>
+              <td>{{ p.payment_method or '\u2014' }}</td>
+              <td class="text-end tabnum text-success fw-bold">+{{ currency }}{{ "{:,.2f}".format(p.amount) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="text-center text-muted py-4">No payments received yet</div>
+        {% endif %}
+      </div>
+      <div id="cashOut" class="kpi-tab-panel">
+        {% if cash_payments_out %}
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Payment #</th><th>Vendor</th><th>Date</th><th>Method</th><th class="text-end">Amount</th></tr></thead>
+          <tbody>
+            {% for p in cash_payments_out %}
+            <tr>
+              <td>{{ p.payment_number }}</td>
+              <td>{{ p.vendor.name if p.vendor else '\u2014' }}</td>
+              <td>{{ p.date.strftime('%b %d, %Y') }}</td>
+              <td>{{ p.payment_method or '\u2014' }}</td>
+              <td class="text-end tabnum text-danger fw-bold">-{{ currency }}{{ "{:,.2f}".format(p.amount) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="text-center text-muted py-4">No payments made yet</div>
+        {% endif %}
+      </div>
+      <div id="cashPetty" class="kpi-tab-panel">
+        {% if cash_petty_out %}
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Expense #</th><th>Category</th><th>Date</th><th class="text-end">Amount</th></tr></thead>
+          <tbody>
+            {% for e in cash_petty_out %}
+            <tr>
+              <td>{{ e.expense_number }}</td>
+              <td>{{ e.category or '\u2014' }}</td>
+              <td>{{ e.date.strftime('%b %d, %Y') }}</td>
+              <td class="text-end tabnum text-danger fw-bold">-{{ currency }}{{ "{:,.2f}".format(e.amount) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="text-center text-muted py-4">No petty cash expenses yet</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    var labels={{ chart_labels|safe }};
+    var revenue={{ chart_revenue|safe }};
+    var expenses={{ chart_expenses|safe }};
+    var profit={{ chart_profit|safe }};
+    var expCatLabels={{ expense_cat_labels|safe }};
+    var expCatValues={{ expense_cat_values|safe }};
+    var cfIn={{ cf_in_data|safe }};
+    var cfOut={{ cf_out_data|safe }};
+    var cur='{{ currency }}';
+    var txt=getChartTextColor();
+    var grid=getChartGridColor();
+
+    Chart.defaults.font.family="'Inter',system-ui,sans-serif";
+    Chart.defaults.font.size=11;
+    Chart.defaults.color=txt;
+
+    function el(id){return document.getElementById(id);}
+    function fmt(v){return cur+v.toLocaleString(undefined,{maximumFractionDigits:0});}
+
+    new Chart(el('revenueChart'),{
+        type:'bar',
+        data:{labels:labels,datasets:[
+            {label:'Revenue',data:revenue,backgroundColor:'rgba(99,102,241,0.18)',borderColor:'#6366f1',borderWidth:2,borderRadius:6,order:2},
+            {label:'Expenses',data:expenses,backgroundColor:'rgba(239,68,68,0.18)',borderColor:'#ef4444',borderWidth:2,borderRadius:6,order:2},
+            {label:'Net Profit',data:profit,type:'line',borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.06)',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#10b981',pointBorderColor:'#fff',pointBorderWidth:2,fill:true,tension:0.4,order:1}
+        ]},
+        options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(15,23,42,0.92)',cornerRadius:8,padding:10,titleFont:{weight:'600'},callbacks:{label:function(c){return c.dataset.label+': '+fmt(c.parsed.y);}}}},scales:{x:{grid:{display:false},ticks:{color:txt,font:{size:10}}},y:{grid:{color:grid,drawBorder:false},ticks:{color:txt,callback:function(v){return fmt(v);},font:{size:10}},border:{display:false}}}}
+    });
+
+    if(expCatLabels.length){
+        var cols=['#6366f1','#ef4444','#f59e0b','#10b981','#06b6d4','#8b5cf6','#ec4899','#f97316','#14b8a6','#84cc16'];
+        new Chart(el('expenseChart'),{type:'doughnut',data:{labels:expCatLabels,datasets:[{data:expCatValues,backgroundColor:cols.slice(0,expCatLabels.length),borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:txt,usePointStyle:true,boxWidth:8,font:{size:10},padding:10}},tooltip:{backgroundColor:'rgba(15,23,42,0.92)',cornerRadius:8,callbacks:{label:function(c){var t=c.dataset.data.reduce(function(a,b){return a+b;},0);return c.label+': '+fmt(c.parsed)+' ('+(t>0?(c.parsed/t*100).toFixed(1)+'%':'')+')';}}}}}});
+    }
+
+    new Chart(el('cashFlowChart'),{type:'line',data:{labels:labels,datasets:[
+        {label:'Cash In',data:cfIn,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.08)',borderWidth:2,pointRadius:3,pointBackgroundColor:'#10b981',fill:true,tension:0.4},
+        {label:'Cash Out',data:cfOut,borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.06)',borderWidth:2,pointRadius:3,pointBackgroundColor:'#ef4444',fill:true,tension:0.4}
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},plugins:{legend:{position:'bottom',labels:{color:txt,usePointStyle:true,boxWidth:8,font:{size:10}}},tooltip:{backgroundColor:'rgba(15,23,42,0.92)',cornerRadius:8,callbacks:{label:function(c){return c.dataset.label+': '+fmt(c.parsed.y);}}}},scales:{x:{grid:{display:false},ticks:{color:txt,font:{size:9}}},y:{grid:{color:grid,drawBorder:false},ticks:{color:txt,callback:function(v){return fmt(v);},font:{size:9}},border:{display:false}}}}});
+})();
+
+/* ─── KPI Modal Functions ─────────────────────────── */
+function openKpiModal(id){
+    document.getElementById(id).classList.add('open');
+    document.body.style.overflow='hidden';
+}
+function closeKpiModal(e,id){
+    if(e.target===e.currentTarget){
+        document.getElementById(id).classList.remove('open');
+        document.body.style.overflow='';
+    }
+}
+function switchCashTab(btn,panelId){
+    btn.closest('.kpi-tabs').querySelectorAll('.kpi-tab').forEach(function(t){t.classList.remove('active');});
+    btn.classList.add('active');
+    btn.closest('.kpi-modal-body').querySelectorAll('.kpi-tab-panel').forEach(function(p){p.classList.remove('active');});
+    document.getElementById(panelId).classList.add('active');
+}
+document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){
+        document.querySelectorAll('.kpi-modal-backdrop.open').forEach(function(m){m.classList.remove('open');});
+        document.body.style.overflow='';
+    }
+});
+</script>
+{% endblock %}

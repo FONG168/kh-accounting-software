@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Trial Balance{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-file-earmark-spreadsheet me-2"></i>Trial Balance</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+        <button onclick="exportReportPDF('Trial_Balance')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">From</label>
+                <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start.isoformat() }}">
+            </div>
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0">To</label>
+                <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end.isoformat() }}">
+            </div>
+            <div class="col-12 col-sm-auto"><button class="btn btn-sm btn-primary">Apply</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header text-center">
+        <h5 class="mb-0">{{ config.COMPANY_NAME }}</h5>
+        <small class="text-muted">Trial Balance | {{ start.strftime('%b %d, %Y') }} – {{ end.strftime('%b %d, %Y') }}</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table report-table mb-0">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Account Name</th>
+                    <th>Type</th>
+                    <th class="text-end">Debit</th>
+                    <th class="text-end">Credit</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in data %}
+                <tr>
+                    <td><code>{{ item.account.code }}</code></td>
+                    <td>{{ item.account.name }}</td>
+                    <td class="text-muted">{{ item.account.account_type }}</td>
+                    <td class="text-end amount">{{ currency_symbol ~ "{:,.2f}".format(item.debit) if item.debit else '' }}</td>
+                    <td class="text-end amount">{{ currency_symbol ~ "{:,.2f}".format(item.credit) if item.credit else '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="grand-total">
+                    <td colspan="3">Total</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(total_debit) }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(total_credit) }}</td>
+                </tr>
+                <tr>
+                    <td colspan="3" class="text-end fw-bold">Difference</td>
+                    <td colspan="2" class="text-center {{ 'text-success' if (total_debit - total_credit)|abs < 0.01 else 'text-danger' }} fw-bold">
+                        {{ currency_symbol }}{{ "{:,.2f}".format((total_debit - total_credit)|abs) }}
+                        {% if (total_debit - total_credit)|abs < 0.01 %}<i class="bi bi-check-circle ms-1"></i>{% endif %}
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
