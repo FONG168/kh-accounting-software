@@ -63,9 +63,42 @@
                 </tr>
             </tbody>
 
-            <!-- EXPENSES -->
+            <!-- COST OF GOODS SOLD (COGS) -->
             <tbody>
-                <tr class="section-header"><td colspan="3">Expenses</td></tr>
+                <tr class="section-header"><td colspan="3">Cost of Goods Sold</td></tr>
+                {% for item in cogs_data %}
+                <tr class="indent-1">
+                    <td>{{ item.account.code }} – {{ item.account.name }}</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(item.balance) }}</td>
+                    <td class="text-end amount text-muted">{{ currency_symbol }}{{ "{:,.2f}".format(item.prior) }}</td>
+                </tr>
+                {% endfor %}
+                {% if not cogs_data %}
+                <tr class="indent-1"><td colspan="3" class="text-muted">No cost of goods sold recorded</td></tr>
+                {% endif %}
+                <tr class="section-total">
+                    <td>Total COGS</td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(total_cogs) }}</td>
+                    <td class="text-end amount text-muted">{{ currency_symbol }}{{ "{:,.2f}".format(prior_total_cogs) }}</td>
+                </tr>
+            </tbody>
+
+            <!-- GROSS PROFIT -->
+            <tbody>
+                <tr class="grand-total" style="background: #f0f4ff;">
+                    <td><strong>Gross Profit</strong></td>
+                    <td class="text-end amount {{ 'amount-positive' if gross_profit >= 0 else 'amount-negative' }}">
+                        <strong>{{ currency_symbol }}{{ "{:,.2f}".format(gross_profit) }}</strong>
+                    </td>
+                    <td class="text-end amount text-muted">
+                        <strong>{{ currency_symbol }}{{ "{:,.2f}".format(prior_gross_profit) }}</strong>
+                    </td>
+                </tr>
+            </tbody>
+
+            <!-- OPERATING EXPENSES -->
+            <tbody>
+                <tr class="section-header"><td colspan="3">Operating Expenses</td></tr>
                 {% for item in expense_data %}
                 <tr class="indent-1">
                     <td>{{ item.account.code }} – {{ item.account.name }}</td>
@@ -74,10 +107,10 @@
                 </tr>
                 {% endfor %}
                 {% if not expense_data %}
-                <tr class="indent-1"><td colspan="3" class="text-muted">No expenses recorded</td></tr>
+                <tr class="indent-1"><td colspan="3" class="text-muted">No operating expenses recorded</td></tr>
                 {% endif %}
                 <tr class="section-total">
-                    <td>Total Expenses</td>
+                    <td>Total Operating Expenses</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(total_expenses) }}</td>
                     <td class="text-end amount text-muted">{{ currency_symbol }}{{ "{:,.2f}".format(prior_total_expenses) }}</td>
                 </tr>

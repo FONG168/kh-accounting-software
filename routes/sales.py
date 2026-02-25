@@ -69,8 +69,10 @@ def create_invoice_journal_entry(invoice):
         total_cogs = 0
         for item in invoice.items:
             if item.product and not item.product.is_service:
-                cogs = float(item.quantity) * float(item.product.cost_price)
-                total_cogs += cogs
+                cost = float(item.product.cost_price or 0)
+                if cost > 0:
+                    cogs = float(item.quantity) * cost
+                    total_cogs += cogs
         if total_cogs > 0:
             entry.lines.append(JournalLine(account_id=cogs_account.id, debit=total_cogs, credit=0, user_id=current_user.id))
             entry.lines.append(JournalLine(account_id=inventory_account.id, debit=0, credit=total_cogs, user_id=current_user.id))
@@ -243,6 +245,15 @@ def create():
             je = create_invoice_journal_entry(invoice)
             if je:
                 invoice.journal_entry_id = je.id
+
+            # Warn if inventory products have zero cost price (COGS won't be recorded)
+            zero_cost_items = [item for item in invoice.items
+                               if item.product and not item.product.is_service
+                               and float(item.product.cost_price or 0) == 0]
+            if zero_cost_items:
+                names = ', '.join(item.product.name for item in zero_cost_items)
+                flash(f'⚠️ Warning: {names} — cost price is $0, so COGS was not recorded. '
+                      f'Update the cost price in Inventory to fix future invoices.', 'warning')
 
             # Always: record stock-out for inventory items
             record_stock_out(invoice)

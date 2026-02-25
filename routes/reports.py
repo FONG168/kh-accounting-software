@@ -71,6 +71,10 @@ def profit_loss():
             total_revenue += balance
             prior_total_revenue += prior_balance
 
+    # ── Separate COGS (Cost of Sales) from Operating Expenses ──
+    cogs_data = []
+    total_cogs = 0
+    prior_total_cogs = 0
     expense_data = []
     total_expenses = 0
     prior_total_expenses = 0
@@ -80,15 +84,29 @@ def profit_loss():
         pd, pc = get_account_balance(acct.id, prior_start, prior_end)
         prior_balance = pd - pc
         if abs(balance) > 0.001 or abs(prior_balance) > 0.001:
-            expense_data.append({'account': acct, 'balance': balance, 'prior': prior_balance})
-            total_expenses += balance
-            prior_total_expenses += prior_balance
+            entry = {'account': acct, 'balance': balance, 'prior': prior_balance}
+            if acct.sub_type == 'Cost of Sales':
+                cogs_data.append(entry)
+                total_cogs += balance
+                prior_total_cogs += prior_balance
+            else:
+                expense_data.append(entry)
+                total_expenses += balance
+                prior_total_expenses += prior_balance
 
-    net_income = total_revenue - total_expenses
-    prior_net_income = prior_total_revenue - prior_total_expenses
+    gross_profit = total_revenue - total_cogs
+    prior_gross_profit = prior_total_revenue - prior_total_cogs
+    all_total_expenses = total_cogs + total_expenses
+    prior_all_total_expenses = prior_total_cogs + prior_total_expenses
+    net_income = total_revenue - all_total_expenses
+    prior_net_income = prior_total_revenue - prior_all_total_expenses
 
     return render_template('reports/profit_loss.html',
-                           revenue_data=revenue_data, expense_data=expense_data,
+                           revenue_data=revenue_data,
+                           cogs_data=cogs_data, total_cogs=total_cogs,
+                           prior_total_cogs=prior_total_cogs,
+                           gross_profit=gross_profit, prior_gross_profit=prior_gross_profit,
+                           expense_data=expense_data,
                            total_revenue=total_revenue, total_expenses=total_expenses,
                            net_income=net_income,
                            prior_total_revenue=prior_total_revenue,
