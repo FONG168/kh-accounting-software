@@ -73,76 +73,29 @@
             gap: 16px;
             animation: fadeSlideUp .7s ease-out;
         }
-        .auth-brand .brand-logo .auth-monogram {
-            width: 64px; height: 64px;
+        .auth-brand .brand-logo .auth-text-logo {
             flex-shrink: 0;
             position: relative;
             display: flex; align-items: center; justify-content: center;
         }
-        .auth-monogram .logo-shape {
-            position: absolute; inset: 0;
-        }
-        .auth-monogram .logo-bg {
-            width: 100%; height: 100%;
-            rx: 18; ry: 18;
-            fill: url(#logoGrad);
-            filter: drop-shadow(0 6px 20px rgba(59,130,246,.35));
-        }
-        .auth-monogram .logo-inner-border {
-            width: calc(100% - 4px); height: calc(100% - 4px);
-            x: 2; y: 2;
-            rx: 16; ry: 16;
-            fill: none;
-            stroke: rgba(255,255,255,.12);
-            stroke-width: 1;
-        }
-        .auth-monogram .logo-shine {
-            width: 100%; height: 50%;
-            rx: 18; ry: 18;
-            fill: url(#logoShine);
-        }
-        .auth-monogram .logo-letters {
+        .auth-text-logo .logo-kh {
             font-family: 'Inter', sans-serif;
-            font-size: 22px;
+            font-size: 3.2rem;
             font-weight: 900;
-            letter-spacing: 1.5px;
-            fill: #fff;
-            text-anchor: middle;
-            dominant-baseline: central;
-            filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
+            letter-spacing: -2px;
+            line-height: 1;
+            background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 40%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+            filter: drop-shadow(0 2px 12px rgba(59,130,246,.25));
         }
-        /* Outer glow ring */
-        .auth-monogram::before {
-            content: '';
-            position: absolute;
-            inset: -6px;
-            border-radius: 22px;
-            background: conic-gradient(
-                from 0deg,
-                rgba(59,130,246,.3),
-                rgba(99,102,241,.15),
-                rgba(139,92,246,.3),
-                rgba(99,102,241,.15),
-                rgba(59,130,246,.3)
-            );
-            z-index: -1;
-            filter: blur(8px);
-            opacity: .7;
-            animation: logoGlowRotate 8s linear infinite;
-        }
-        /* Subtle pulse ring */
-        .auth-monogram::after {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: 20px;
-            border: 1px solid rgba(255,255,255,.06);
-            z-index: 1;
-            pointer-events: none;
-        }
-        @keyframes logoGlowRotate {
-            from { filter: blur(8px) hue-rotate(0deg); }
-            to   { filter: blur(8px) hue-rotate(360deg); }
+        .auth-text-logo .logo-kh .logo-dot {
+            -webkit-text-fill-color: #3b82f6;
+            font-size: 2.8rem;
+            line-height: 0;
+            vertical-align: baseline;
         }
         .auth-brand .brand-logo .auth-brand-text { display: flex; flex-direction: column; line-height: 1.2; }
         .auth-brand .brand-logo .auth-brand-text .auth-brand-name {
@@ -216,6 +169,23 @@
             font-size: .6rem; font-weight: 600; letter-spacing: .5px;
             text-transform: uppercase; color: #475569;
         }
+
+        /* About link */
+        .about-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 1.75rem; padding: .5rem 1.25rem;
+            font-size: .8rem; font-weight: 600; color: #64748b;
+            text-decoration: none; border-radius: 10px;
+            background: rgba(255,255,255,.03);
+            border: 1px solid rgba(255,255,255,.06);
+            transition: all .3s ease;
+            animation: fadeSlideUp .7s ease-out .6s both;
+        }
+        .about-link:hover {
+            color: #3b82f6; background: rgba(59,130,246,.08);
+            border-color: rgba(59,130,246,.2); transform: translateY(-1px);
+        }
+        .about-link i { font-size: .9rem; }
 
         /* ── Right form panel ── */
         .auth-form-panel {
@@ -414,25 +384,9 @@
     <div class="auth-grid-overlay"></div>
 
     <div class="auth-brand">
-        <div class="brand-logo">
-            <div class="auth-monogram">
-                <svg class="logo-shape" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#3b82f6"/>
-                            <stop offset="45%" stop-color="#4f46e5"/>
-                            <stop offset="100%" stop-color="#7c3aed"/>
-                        </linearGradient>
-                        <linearGradient id="logoShine" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stop-color="rgba(255,255,255,.22)"/>
-                            <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-                        </linearGradient>
-                    </defs>
-                    <rect class="logo-bg" width="64" height="64" rx="18" ry="18"/>
-                    <rect class="logo-inner-border" x="2" y="2" width="60" height="60" rx="16" ry="16"/>
-                    <rect class="logo-shine" width="64" height="32" rx="18" ry="18"/>
-                    <text class="logo-letters" x="32" y="33">KH</text>
-                </svg>
+        <div class="brand-logo" data-no-translate>
+            <div class="auth-text-logo">
+                <span class="logo-kh">KH<span class="logo-dot">.</span></span>
             </div>
             <div class="auth-brand-text">
                 <span class="auth-brand-name">Accounting Software</span>
@@ -480,6 +434,24 @@
                 <span class="tb-label">Fast</span>
             </div>
         </div>
+
+        <a href="{{ url_for('auth.about') }}" class="about-link">
+            <i class="bi bi-info-circle"></i> About This Software
+        </a>
+
+        <!-- Language Selector -->
+        <div class="lang-switch-wrap" style="margin-top:1.25rem;animation:fadeSlideUp .7s ease-out .7s both;">
+            <button onclick="setLanguage(getLanguage()==='km'?'en':'km')" class="lang-selector" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#94a3b8;padding:8px 16px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:600;transition:all .3s ease;">
+                <i class="bi bi-translate" style="font-size:1rem;"></i>
+                <span id="langBtnLabel">ខ្មែរ</span>
+            </button>
+        </div>
+        <script>
+            (function(){
+                var btn = document.getElementById('langBtnLabel');
+                if(btn) btn.textContent = (localStorage.getItem('kh-lang')==='km') ? 'English' : 'ខ្មែរ';
+            })();
+        </script>
     </div>
 
     <div class="auth-form-panel">
@@ -501,6 +473,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/translations.js') }}"></script>
     <script>
         /* Password visibility toggle */
         document.querySelectorAll('.pwd-toggle-btn').forEach(btn => {

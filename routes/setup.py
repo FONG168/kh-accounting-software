@@ -1,8 +1,15 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required, current_user
-from database.models import db, CompanySettings, Category, Account, Product, log_activity
+from database.models import (db, CompanySettings, Category, Account, Product, log_activity,
+                              Customer, Vendor, Invoice, InvoiceItem, Bill, BillItem,
+                              PaymentReceived, PaymentMade, Expense,
+                              JournalEntry, JournalLine, StockMovement,
+                              CreditNote, CreditNoteItem, DebitNote, DebitNoteItem,
+                              Budget, FiscalPeriod)
 from database.firebase_sync import full_backup, full_restore, is_enabled as firebase_enabled
-import os, uuid
+import os, uuid, io, json, zipfile
+from datetime import datetime, date
+from decimal import Decimal
 
 
 def _seed_default_and_ifrs_accounts_for_user(user_id):
@@ -625,6 +632,599 @@ def cloud_restore():
     db.session.commit()
     flash(message, 'success' if success else 'danger')
     return redirect(url_for('setup.settings'))
+
+
+# ─── DATA RESTORE FROM ZIP BACKUP ─────────────────────────────────────
+@setup_bp.route('/restore', methods=['GET'])
+@login_required
+def restore_data_page():
+    """Show the Data Restore page."""
+    return render_template('setup/restore.html')
+
+
+@setup_bp.route('/restore', methods=['POST'])
+@login_required
+def restore_data_upload():
+    """Handle ZIP upload and restore user data."""
+    from database.models import (
+        Account, Customer, Vendor, Product as ProductModel, Category as CategoryModel,
+        CompanySettings as CompanySettingsModel,
+        Invoice, InvoiceItem, Bill, BillItem,
+        PaymentReceived, PaymentMade, Expense,
+        JournalEntry, JournalLine, StockMovement,
+        CreditNote, CreditNoteItem, DebitNote, DebitNoteItem,
+        Budget, FiscalPeriod
+    )
+
+    file = request.files.get('backup_file')
+    if not file or not file.filename.endswith('.zip'):
+        flash('Please upload a valid .zip backup file.', 'danger')
+        return redirect(url_for('setup.restore_data_page'))
+
+    restore_mode = request.form.get('restore_mode', 'merge')  # merge or replace
+
+    try:
+        zip_bytes = io.BytesIO(file.read())
+        with zipfile.ZipFile(zip_bytes, 'r') as zf:
+            # Validate: must contain backup_meta.json
+            if 'backup_meta.json' not in zf.namelist():
+                flash('Invalid backup file — missing backup_meta.json.', 'danger')
+                return redirect(url_for('setup.restore_data_page'))
+
+            meta = json.loads(zf.read('backup_meta.json'))
+
+            # Read all data files
+            def read_json(name):
+                path = f'data/{name}.json'
+                if path in zf.namelist():
+                    return json.loads(zf.read(path))
+                return []
+
+            # ── If replace mode, wipe existing data ──
+            if restore_mode == 'replace':
+                uid = current_user.id
+                # Delete child records first
+                inv_ids = [i.id for i in Invoice.query.filter_by(user_id=uid).all()]
+                if inv_ids:
+                    InvoiceItem.query.filter(InvoiceItem.invoice_id.in_(inv_ids)).delete(synchronize_session=False)
+                bill_ids = [b.id for b in Bill.query.filter_by(user_id=uid).all()]
+                if bill_ids:
+                    BillItem.query.filter(BillItem.bill_id.in_(bill_ids)).delete(synchronize_session=False)
+                cn_ids = [c.id for c in CreditNote.query.filter_by(user_id=uid).all()]
+                if cn_ids:
+                    CreditNoteItem.query.filter(CreditNoteItem.credit_note_id.in_(cn_ids)).delete(synchronize_session=False)
+                dn_ids = [d.id for d in DebitNote.query.filter_by(user_id=uid).all()]
+                if dn_ids:
+                    DebitNoteItem.query.filter(DebitNoteItem.debit_note_id.in_(dn_ids)).delete(synchronize_session=False)
+                je_ids = [j.id for j in JournalEntry.query.filter_by(user_id=uid).all()]
+                if je_ids:
+                    JournalLine.query.filter(JournalLine.journal_entry_id.in_(je_ids)).delete(synchronize_session=False)
+                # Delete main records
+                PaymentReceived.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                PaymentMade.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                Invoice.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                Bill.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                CreditNote.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                DebitNote.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                Expense.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                JournalEntry.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                StockMovement.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                ProductModel.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                CategoryModel.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                Customer.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                Vendor.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                Account.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                Budget.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                FiscalPeriod.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                CompanySettingsModel.query.filter_by(user_id=uid).delete(synchronize_session=False)
+                db.session.flush()
+
+            # ── ID mapping: old backup IDs → new DB IDs ──
+            id_map = {}  # { 'table_name': { old_id: new_id } }
+            total_imported = 0
+            uid = current_user.id
+
+            def parse_date(val):
+                if not val:
+                    return None
+                try:
+                    return datetime.fromisoformat(val).date() if 'T' not in str(val) else datetime.fromisoformat(val).date()
+                except (ValueError, TypeError):
+                    try:
+                        return datetime.strptime(str(val), '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        return None
+
+            def parse_datetime(val):
+                if not val:
+                    return None
+                try:
+                    return datetime.fromisoformat(val)
+                except (ValueError, TypeError):
+                    return None
+
+            def parse_decimal(val):
+                if val is None:
+                    return Decimal('0')
+                try:
+                    return Decimal(str(val))
+                except Exception:
+                    return Decimal('0')
+
+            def parse_bool(val):
+                if val is None:
+                    return False
+                if isinstance(val, bool):
+                    return val
+                return str(val).lower() in ('true', '1', 'yes')
+
+            # ── Import master data ──
+            # Company Settings
+            cs_rows = read_json('company_settings')
+            for row in cs_rows:
+                cs = CompanySettingsModel(
+                    user_id=uid,
+                    company_name=row.get('company_name', 'My Company'),
+                    industry=row.get('industry', ''),
+                    business_type=row.get('business_type', 'product'),
+                    currency_symbol=row.get('currency_symbol', '$'),
+                    is_setup_complete=parse_bool(row.get('is_setup_complete', True)),
+                    tagline=row.get('tagline', ''),
+                    description=row.get('description', ''),
+                    registration_number=row.get('registration_number', ''),
+                    tax_id=row.get('tax_id', ''),
+                    founded_date=parse_date(row.get('founded_date')),
+                    logo=row.get('logo', ''),
+                    email=row.get('email', ''),
+                    phone=row.get('phone', ''),
+                    website=row.get('website', ''),
+                    fax=row.get('fax', ''),
+                    address_line1=row.get('address_line1', ''),
+                    address_line2=row.get('address_line2', ''),
+                    city=row.get('city', ''),
+                    state=row.get('state', ''),
+                    postal_code=row.get('postal_code', ''),
+                    country=row.get('country', ''),
+                )
+                db.session.add(cs)
+                total_imported += 1
+
+            # Categories
+            id_map['categories'] = {}
+            for row in read_json('categories'):
+                old_id = row.get('id')
+                cat = CategoryModel(
+                    user_id=uid,
+                    name=row.get('name', ''),
+                    description=row.get('description', ''),
+                    category_type=row.get('category_type', 'product'),
+                    is_active=parse_bool(row.get('is_active', True)),
+                    is_custom=parse_bool(row.get('is_custom', False)),
+                    sort_order=row.get('sort_order', 0),
+                )
+                db.session.add(cat)
+                db.session.flush()
+                if old_id:
+                    id_map['categories'][old_id] = cat.id
+                total_imported += 1
+
+            # Accounts
+            id_map['accounts'] = {}
+            for row in read_json('accounts'):
+                old_id = row.get('id')
+                acct = Account(
+                    user_id=uid,
+                    code=row.get('code', ''),
+                    name=row.get('name', ''),
+                    account_type=row.get('account_type', ''),
+                    sub_type=row.get('sub_type', ''),
+                    description=row.get('description', ''),
+                    is_active=parse_bool(row.get('is_active', True)),
+                    is_system=parse_bool(row.get('is_system', False)),
+                    normal_balance=row.get('normal_balance', 'debit'),
+                )
+                db.session.add(acct)
+                db.session.flush()
+                if old_id:
+                    id_map['accounts'][old_id] = acct.id
+                total_imported += 1
+
+            # Customers
+            id_map['customers'] = {}
+            for row in read_json('customers'):
+                old_id = row.get('id')
+                c = Customer(
+                    user_id=uid,
+                    name=row.get('name', ''),
+                    email=row.get('email', ''),
+                    phone=row.get('phone', ''),
+                    address=row.get('address', ''),
+                    city=row.get('city', ''),
+                    tax_id=row.get('tax_id', ''),
+                    credit_limit=parse_decimal(row.get('credit_limit')),
+                    balance=parse_decimal(row.get('balance')),
+                    is_active=parse_bool(row.get('is_active', True)),
+                    notes=row.get('notes', ''),
+                )
+                db.session.add(c)
+                db.session.flush()
+                if old_id:
+                    id_map['customers'][old_id] = c.id
+                total_imported += 1
+
+            # Vendors
+            id_map['vendors'] = {}
+            for row in read_json('vendors'):
+                old_id = row.get('id')
+                v = Vendor(
+                    user_id=uid,
+                    name=row.get('name', ''),
+                    email=row.get('email', ''),
+                    phone=row.get('phone', ''),
+                    address=row.get('address', ''),
+                    city=row.get('city', ''),
+                    tax_id=row.get('tax_id', ''),
+                    balance=parse_decimal(row.get('balance')),
+                    is_active=parse_bool(row.get('is_active', True)),
+                    notes=row.get('notes', ''),
+                )
+                db.session.add(v)
+                db.session.flush()
+                if old_id:
+                    id_map['vendors'][old_id] = v.id
+                total_imported += 1
+
+            # Products
+            id_map['products'] = {}
+            for row in read_json('products'):
+                old_id = row.get('id')
+                p = ProductModel(
+                    user_id=uid,
+                    sku=row.get('sku', ''),
+                    name=row.get('name', ''),
+                    description=row.get('description', ''),
+                    category=row.get('category', ''),
+                    category_id=id_map['categories'].get(row.get('category_id')),
+                    unit=row.get('unit', 'pcs'),
+                    cost_price=parse_decimal(row.get('cost_price')),
+                    selling_price=parse_decimal(row.get('selling_price')),
+                    quantity_on_hand=parse_decimal(row.get('quantity_on_hand')),
+                    reorder_level=parse_decimal(row.get('reorder_level')),
+                    is_active=parse_bool(row.get('is_active', True)),
+                    is_service=parse_bool(row.get('is_service', False)),
+                    item_type=row.get('item_type', 'product'),
+                    sub_category=row.get('sub_category', ''),
+                    revenue_type=row.get('revenue_type', ''),
+                    cost_behavior=row.get('cost_behavior', ''),
+                    tax_type=row.get('tax_type', 'taxable'),
+                    income_account_id=id_map['accounts'].get(row.get('income_account_id')),
+                    expense_account_id=id_map['accounts'].get(row.get('expense_account_id')),
+                    asset_account_id=id_map['accounts'].get(row.get('asset_account_id')),
+                )
+                db.session.add(p)
+                db.session.flush()
+                if old_id:
+                    id_map['products'][old_id] = p.id
+                total_imported += 1
+
+            # ── Import transaction data ──
+            # Journal Entries + Lines
+            id_map['journal_entries'] = {}
+            for row in read_json('journal_entries'):
+                old_id = row.get('id')
+                je = JournalEntry(
+                    user_id=uid,
+                    entry_number=row.get('entry_number', ''),
+                    date=parse_date(row.get('date')) or date.today(),
+                    description=row.get('description', ''),
+                    reference=row.get('reference', ''),
+                    source=row.get('source', ''),
+                    is_posted=parse_bool(row.get('is_posted', False)),
+                    is_adjusting=parse_bool(row.get('is_adjusting', False)),
+                )
+                db.session.add(je)
+                db.session.flush()
+                if old_id:
+                    id_map['journal_entries'][old_id] = je.id
+                total_imported += 1
+
+            for row in read_json('journal_lines'):
+                jl = JournalLine(
+                    user_id=uid,
+                    journal_entry_id=id_map['journal_entries'].get(row.get('journal_entry_id'), row.get('journal_entry_id')),
+                    account_id=id_map['accounts'].get(row.get('account_id'), row.get('account_id')),
+                    description=row.get('description', ''),
+                    debit=parse_decimal(row.get('debit')),
+                    credit=parse_decimal(row.get('credit')),
+                )
+                db.session.add(jl)
+                total_imported += 1
+
+            # Invoices + Items
+            id_map['invoices'] = {}
+            for row in read_json('invoices'):
+                old_id = row.get('id')
+                inv = Invoice(
+                    user_id=uid,
+                    invoice_number=row.get('invoice_number', ''),
+                    customer_id=id_map['customers'].get(row.get('customer_id'), row.get('customer_id')),
+                    date=parse_date(row.get('date')) or date.today(),
+                    due_date=parse_date(row.get('due_date')),
+                    status=row.get('status', 'draft'),
+                    payment_type=row.get('payment_type', 'owe'),
+                    subtotal=parse_decimal(row.get('subtotal')),
+                    tax_rate=parse_decimal(row.get('tax_rate')),
+                    tax_amount=parse_decimal(row.get('tax_amount')),
+                    discount_amount=parse_decimal(row.get('discount_amount')),
+                    total=parse_decimal(row.get('total')),
+                    amount_paid=parse_decimal(row.get('amount_paid')),
+                    balance_due=parse_decimal(row.get('balance_due')),
+                    paid_date=parse_date(row.get('paid_date')),
+                    notes=row.get('notes', ''),
+                    journal_entry_id=id_map['journal_entries'].get(row.get('journal_entry_id')),
+                )
+                db.session.add(inv)
+                db.session.flush()
+                if old_id:
+                    id_map['invoices'][old_id] = inv.id
+                total_imported += 1
+
+            for row in read_json('invoice_items'):
+                ii = InvoiceItem(
+                    invoice_id=id_map['invoices'].get(row.get('invoice_id'), row.get('invoice_id')),
+                    product_id=id_map['products'].get(row.get('product_id')),
+                    description=row.get('description', ''),
+                    quantity=parse_decimal(row.get('quantity')),
+                    unit_price=parse_decimal(row.get('unit_price')),
+                    amount=parse_decimal(row.get('amount')),
+                )
+                db.session.add(ii)
+                total_imported += 1
+
+            # Bills + Items
+            id_map['bills'] = {}
+            for row in read_json('bills'):
+                old_id = row.get('id')
+                b = Bill(
+                    user_id=uid,
+                    bill_number=row.get('bill_number', ''),
+                    vendor_id=id_map['vendors'].get(row.get('vendor_id'), row.get('vendor_id')),
+                    date=parse_date(row.get('date')) or date.today(),
+                    due_date=parse_date(row.get('due_date')),
+                    payment_type=row.get('payment_type', 'owe'),
+                    status=row.get('status', 'draft'),
+                    subtotal=parse_decimal(row.get('subtotal')),
+                    tax_rate=parse_decimal(row.get('tax_rate')),
+                    tax_amount=parse_decimal(row.get('tax_amount')),
+                    total=parse_decimal(row.get('total')),
+                    amount_paid=parse_decimal(row.get('amount_paid')),
+                    balance_due=parse_decimal(row.get('balance_due')),
+                    notes=row.get('notes', ''),
+                    journal_entry_id=id_map['journal_entries'].get(row.get('journal_entry_id')),
+                    paid_date=parse_date(row.get('paid_date')),
+                )
+                db.session.add(b)
+                db.session.flush()
+                if old_id:
+                    id_map['bills'][old_id] = b.id
+                total_imported += 1
+
+            for row in read_json('bill_items'):
+                bi = BillItem(
+                    bill_id=id_map['bills'].get(row.get('bill_id'), row.get('bill_id')),
+                    product_id=id_map['products'].get(row.get('product_id')),
+                    description=row.get('description', ''),
+                    quantity=parse_decimal(row.get('quantity')),
+                    unit_cost=parse_decimal(row.get('unit_cost')),
+                    amount=parse_decimal(row.get('amount')),
+                )
+                db.session.add(bi)
+                total_imported += 1
+
+            # Payments Received
+            for row in read_json('payments_received'):
+                pr = PaymentReceived(
+                    user_id=uid,
+                    payment_number=row.get('payment_number', ''),
+                    customer_id=id_map['customers'].get(row.get('customer_id'), row.get('customer_id')),
+                    invoice_id=id_map['invoices'].get(row.get('invoice_id')),
+                    date=parse_date(row.get('date')) or date.today(),
+                    amount=parse_decimal(row.get('amount')),
+                    payment_method=row.get('payment_method', ''),
+                    reference=row.get('reference', ''),
+                    deposit_to_account_id=id_map['accounts'].get(row.get('deposit_to_account_id')),
+                    journal_entry_id=id_map['journal_entries'].get(row.get('journal_entry_id')),
+                    notes=row.get('notes', ''),
+                )
+                db.session.add(pr)
+                total_imported += 1
+
+            # Payments Made
+            for row in read_json('payments_made'):
+                pm = PaymentMade(
+                    user_id=uid,
+                    payment_number=row.get('payment_number', ''),
+                    vendor_id=id_map['vendors'].get(row.get('vendor_id'), row.get('vendor_id')),
+                    bill_id=id_map['bills'].get(row.get('bill_id')),
+                    date=parse_date(row.get('date')) or date.today(),
+                    amount=parse_decimal(row.get('amount')),
+                    payment_method=row.get('payment_method', ''),
+                    reference=row.get('reference', ''),
+                    paid_from_account_id=id_map['accounts'].get(row.get('paid_from_account_id')),
+                    journal_entry_id=id_map['journal_entries'].get(row.get('journal_entry_id')),
+                    notes=row.get('notes', ''),
+                )
+                db.session.add(pm)
+                total_imported += 1
+
+            # Expenses
+            for row in read_json('expenses'):
+                exp = Expense(
+                    user_id=uid,
+                    expense_number=row.get('expense_number', ''),
+                    date=parse_date(row.get('date')) or date.today(),
+                    category=row.get('category', ''),
+                    vendor_id=id_map['vendors'].get(row.get('vendor_id')),
+                    expense_account_id=id_map['accounts'].get(row.get('expense_account_id'), row.get('expense_account_id')),
+                    paid_from_account_id=id_map['accounts'].get(row.get('paid_from_account_id'), row.get('paid_from_account_id')),
+                    amount=parse_decimal(row.get('amount')),
+                    payment_method=row.get('payment_method', ''),
+                    reference=row.get('reference', ''),
+                    description=row.get('description', ''),
+                    journal_entry_id=id_map['journal_entries'].get(row.get('journal_entry_id')),
+                )
+                db.session.add(exp)
+                total_imported += 1
+
+            # Stock Movements
+            for row in read_json('stock_movements'):
+                sm = StockMovement(
+                    user_id=uid,
+                    product_id=id_map['products'].get(row.get('product_id'), row.get('product_id')),
+                    date=parse_date(row.get('date')) or date.today(),
+                    movement_type=row.get('movement_type', 'in'),
+                    quantity=parse_decimal(row.get('quantity')),
+                    unit_cost=parse_decimal(row.get('unit_cost')),
+                    reference=row.get('reference', ''),
+                    notes=row.get('notes', ''),
+                )
+                db.session.add(sm)
+                total_imported += 1
+
+            # Credit Notes + Items
+            id_map['credit_notes'] = {}
+            for row in read_json('credit_notes'):
+                old_id = row.get('id')
+                cn = CreditNote(
+                    user_id=uid,
+                    credit_note_number=row.get('credit_note_number', ''),
+                    invoice_id=id_map['invoices'].get(row.get('invoice_id')),
+                    customer_id=id_map['customers'].get(row.get('customer_id'), row.get('customer_id')),
+                    date=parse_date(row.get('date')) or date.today(),
+                    reason=row.get('reason', ''),
+                    subtotal=parse_decimal(row.get('subtotal')),
+                    tax_amount=parse_decimal(row.get('tax_amount')),
+                    total=parse_decimal(row.get('total')),
+                    status=row.get('status', 'draft'),
+                    journal_entry_id=id_map['journal_entries'].get(row.get('journal_entry_id')),
+                )
+                db.session.add(cn)
+                db.session.flush()
+                if old_id:
+                    id_map['credit_notes'][old_id] = cn.id
+                total_imported += 1
+
+            for row in read_json('credit_note_items'):
+                cni = CreditNoteItem(
+                    credit_note_id=id_map['credit_notes'].get(row.get('credit_note_id'), row.get('credit_note_id')),
+                    product_id=id_map['products'].get(row.get('product_id')),
+                    description=row.get('description', ''),
+                    quantity=parse_decimal(row.get('quantity')),
+                    unit_price=parse_decimal(row.get('unit_price')),
+                    amount=parse_decimal(row.get('amount')),
+                )
+                db.session.add(cni)
+                total_imported += 1
+
+            # Debit Notes + Items
+            id_map['debit_notes'] = {}
+            for row in read_json('debit_notes'):
+                old_id = row.get('id')
+                dn = DebitNote(
+                    user_id=uid,
+                    debit_note_number=row.get('debit_note_number', ''),
+                    bill_id=id_map['bills'].get(row.get('bill_id')),
+                    vendor_id=id_map['vendors'].get(row.get('vendor_id'), row.get('vendor_id')),
+                    date=parse_date(row.get('date')) or date.today(),
+                    reason=row.get('reason', ''),
+                    subtotal=parse_decimal(row.get('subtotal')),
+                    tax_amount=parse_decimal(row.get('tax_amount')),
+                    total=parse_decimal(row.get('total')),
+                    status=row.get('status', 'draft'),
+                    journal_entry_id=id_map['journal_entries'].get(row.get('journal_entry_id')),
+                )
+                db.session.add(dn)
+                db.session.flush()
+                if old_id:
+                    id_map['debit_notes'][old_id] = dn.id
+                total_imported += 1
+
+            for row in read_json('debit_note_items'):
+                dni = DebitNoteItem(
+                    debit_note_id=id_map['debit_notes'].get(row.get('debit_note_id'), row.get('debit_note_id')),
+                    product_id=id_map['products'].get(row.get('product_id')),
+                    description=row.get('description', ''),
+                    quantity=parse_decimal(row.get('quantity')),
+                    unit_price=parse_decimal(row.get('unit_price')),
+                    amount=parse_decimal(row.get('amount')),
+                )
+                db.session.add(dni)
+                total_imported += 1
+
+            # Budgets (unique constraint on account_id + year + month)
+            for row in read_json('budgets'):
+                acct_id = id_map['accounts'].get(row.get('account_id'), row.get('account_id'))
+                b_year = row.get('year', 2025)
+                b_month = row.get('month', 0)
+                existing_budget = Budget.query.filter_by(
+                    account_id=acct_id, year=b_year, month=b_month
+                ).first()
+                if existing_budget:
+                    # Update existing budget instead of inserting duplicate
+                    existing_budget.amount = parse_decimal(row.get('amount'))
+                    existing_budget.notes = row.get('notes', '') or existing_budget.notes
+                else:
+                    bg = Budget(
+                        user_id=uid,
+                        account_id=acct_id,
+                        year=b_year,
+                        month=b_month,
+                        amount=parse_decimal(row.get('amount')),
+                        notes=row.get('notes', ''),
+                    )
+                    db.session.add(bg)
+                total_imported += 1
+
+            # Fiscal Periods (unique constraint on year + month)
+            for row in read_json('fiscal_periods'):
+                fp_year = row.get('year', 2025)
+                fp_month = row.get('month', 1)
+                existing_fp = FiscalPeriod.query.filter_by(
+                    year=fp_year, month=fp_month
+                ).first()
+                if existing_fp:
+                    # Update existing period instead of inserting duplicate
+                    if parse_bool(row.get('is_locked', False)):
+                        existing_fp.is_locked = True
+                    if row.get('notes'):
+                        existing_fp.notes = row.get('notes', '')
+                else:
+                    fp = FiscalPeriod(
+                        user_id=uid,
+                        year=fp_year,
+                        month=fp_month,
+                        is_locked=parse_bool(row.get('is_locked', False)),
+                        notes=row.get('notes', ''),
+                    )
+                    db.session.add(fp)
+                total_imported += 1
+
+            db.session.commit()
+
+        log_activity('restore', 'Backup', None, 'Data Restore',
+                     f'Restored {total_imported} records from backup (mode: {restore_mode})')
+        db.session.commit()
+        flash(f'Data restored successfully! {total_imported} records imported.', 'success')
+
+    except zipfile.BadZipFile:
+        flash('The uploaded file is not a valid ZIP archive.', 'danger')
+    except json.JSONDecodeError:
+        flash('The backup contains invalid JSON data.', 'danger')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Restore failed: {str(e)}', 'danger')
+
+    return redirect(url_for('setup.restore_data_page'))
 
 
 # ─── HELPER FUNCTIONS ──────────────────────────────────────────────────

@@ -1,11 +1,13 @@
 """
 Admin Panel routes – Super-admin user management, approval, account control.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, abort
+import io, json, zipfile, csv
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, abort, send_file
 from flask_login import login_required, login_user, logout_user, current_user
 from database.models import db, User, ChatMessage, log_activity, Announcement, SystemSettings
 from werkzeug.security import generate_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from decimal import Decimal
 from functools import wraps
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -758,3 +760,231 @@ def chat_messages_api(user_id):
         'is_mine': m.sender_id == current_user.id,
         'time': m.created_at.strftime('%b %d, %I:%M %p')
     } for m in messages])
+
+
+# ─── DATA BACKUP & RECOVERY ─────────────────────────────────────────
+def _serialize_row(row, columns):
+    """Convert a SQLAlchemy row to a JSON-safe dict."""
+    d = {}
+    for col in columns:
+        val = getattr(row, col, None)
+        if val is None:
+            d[col] = None
+        elif isinstance(val, Decimal):
+            d[col] = str(val)
+        elif isinstance(val, datetime):
+            d[col] = val.isoformat()
+        elif isinstance(val, date):
+            d[col] = val.isoformat()
+        else:
+            d[col] = val
+    return d
+
+
+@admin_bp.route('/backup')
+@superadmin_required
+def backup_page():
+    """Show the Data Backup & Recovery page."""
+    users = User.query.filter(
+        User.is_superadmin == False
+    ).order_by(User.full_name).all()
+    return render_template('admin/backup.html', users=users)
+
+
+@admin_bp.route('/backup/download', methods=['POST'])
+@superadmin_required
+def backup_download():
+    """Generate a ZIP backup of a user's data for a date range and download it."""
+    from database.models import (
+        Account, Customer, Vendor, Product, Category, CompanySettings,
+        Invoice, InvoiceItem, Bill, BillItem,
+        PaymentReceived, PaymentMade, Expense,
+        JournalEntry, JournalLine, StockMovement,
+        CreditNote, CreditNoteItem, DebitNote, DebitNoteItem,
+        Budget, FiscalPeriod, AuditLog
+    )
+
+    user_id = request.form.get('user_id', type=int)
+    date_from_str = request.form.get('date_from', '').strip()
+    date_to_str = request.form.get('date_to', '').strip()
+
+    if not user_id:
+        flash('Please select a user.', 'danger')
+        return redirect(url_for('admin.backup_page'))
+
+    user = User.query.get_or_404(user_id)
+    if user.is_superadmin:
+        abort(403)
+
+    # Parse dates (optional – if blank, export ALL data)
+    date_from = None
+    date_to = None
+    try:
+        if date_from_str:
+            date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date()
+        if date_to_str:
+            date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date()
+    except ValueError:
+        flash('Invalid date format.', 'danger')
+        return redirect(url_for('admin.backup_page'))
+
+    # ── Helper: query with user_id and optional created_at date range ──
+    def query_model(model, date_col='created_at'):
+        q = model.query.filter_by(user_id=user_id)
+        if date_from and hasattr(model, date_col):
+            q = q.filter(getattr(model, date_col) >= datetime.combine(date_from, datetime.min.time()))
+        if date_to and hasattr(model, date_col):
+            q = q.filter(getattr(model, date_col) <= datetime.combine(date_to, datetime.max.time()))
+        return q.all()
+
+    def query_by_date_field(model, date_col='date'):
+        q = model.query.filter_by(user_id=user_id)
+        if date_from and hasattr(model, date_col):
+            q = q.filter(getattr(model, date_col) >= date_from)
+        if date_to and hasattr(model, date_col):
+            q = q.filter(getattr(model, date_col) <= date_to)
+        return q.all()
+
+    def get_columns(model):
+        return [c.name for c in model.__table__.columns]
+
+    # ── Collect all data ──
+    data = {}
+
+    # Master data (no date filtering – always include full set)
+    settings = CompanySettings.query.filter_by(user_id=user_id).all()
+    data['company_settings'] = [_serialize_row(r, get_columns(CompanySettings)) for r in settings]
+
+    accounts = Account.query.filter_by(user_id=user_id).all()
+    data['accounts'] = [_serialize_row(r, get_columns(Account)) for r in accounts]
+
+    categories = Category.query.filter_by(user_id=user_id).all()
+    data['categories'] = [_serialize_row(r, get_columns(Category)) for r in categories]
+
+    customers = Customer.query.filter_by(user_id=user_id).all()
+    data['customers'] = [_serialize_row(r, get_columns(Customer)) for r in customers]
+
+    vendors = Vendor.query.filter_by(user_id=user_id).all()
+    data['vendors'] = [_serialize_row(r, get_columns(Vendor)) for r in vendors]
+
+    products = Product.query.filter_by(user_id=user_id).all()
+    data['products'] = [_serialize_row(r, get_columns(Product)) for r in products]
+
+    # Transaction data (date-filtered)
+    invoices = query_by_date_field(Invoice, 'date')
+    data['invoices'] = [_serialize_row(r, get_columns(Invoice)) for r in invoices]
+    inv_ids = [i.id for i in invoices]
+    if inv_ids:
+        inv_items = InvoiceItem.query.filter(InvoiceItem.invoice_id.in_(inv_ids)).all()
+    else:
+        inv_items = []
+    data['invoice_items'] = [_serialize_row(r, get_columns(InvoiceItem)) for r in inv_items]
+
+    bills = query_by_date_field(Bill, 'date')
+    data['bills'] = [_serialize_row(r, get_columns(Bill)) for r in bills]
+    bill_ids = [b.id for b in bills]
+    if bill_ids:
+        bill_items = BillItem.query.filter(BillItem.bill_id.in_(bill_ids)).all()
+    else:
+        bill_items = []
+    data['bill_items'] = [_serialize_row(r, get_columns(BillItem)) for r in bill_items]
+
+    payments_received = query_by_date_field(PaymentReceived, 'date')
+    data['payments_received'] = [_serialize_row(r, get_columns(PaymentReceived)) for r in payments_received]
+
+    payments_made = query_by_date_field(PaymentMade, 'date')
+    data['payments_made'] = [_serialize_row(r, get_columns(PaymentMade)) for r in payments_made]
+
+    expenses = query_by_date_field(Expense, 'date')
+    data['expenses'] = [_serialize_row(r, get_columns(Expense)) for r in expenses]
+
+    journal_entries = query_by_date_field(JournalEntry, 'date')
+    data['journal_entries'] = [_serialize_row(r, get_columns(JournalEntry)) for r in journal_entries]
+    je_ids = [j.id for j in journal_entries]
+    if je_ids:
+        j_lines = JournalLine.query.filter(JournalLine.journal_entry_id.in_(je_ids)).all()
+    else:
+        j_lines = []
+    data['journal_lines'] = [_serialize_row(r, get_columns(JournalLine)) for r in j_lines]
+
+    stock_movements = query_by_date_field(StockMovement, 'date')
+    data['stock_movements'] = [_serialize_row(r, get_columns(StockMovement)) for r in stock_movements]
+
+    credit_notes = query_by_date_field(CreditNote, 'date')
+    data['credit_notes'] = [_serialize_row(r, get_columns(CreditNote)) for r in credit_notes]
+    cn_ids = [c.id for c in credit_notes]
+    if cn_ids:
+        cn_items = CreditNoteItem.query.filter(CreditNoteItem.credit_note_id.in_(cn_ids)).all()
+    else:
+        cn_items = []
+    data['credit_note_items'] = [_serialize_row(r, get_columns(CreditNoteItem)) for r in cn_items]
+
+    debit_notes = query_by_date_field(DebitNote, 'date')
+    data['debit_notes'] = [_serialize_row(r, get_columns(DebitNote)) for r in debit_notes]
+    dn_ids = [d.id for d in debit_notes]
+    if dn_ids:
+        dn_items = DebitNoteItem.query.filter(DebitNoteItem.debit_note_id.in_(dn_ids)).all()
+    else:
+        dn_items = []
+    data['debit_note_items'] = [_serialize_row(r, get_columns(DebitNoteItem)) for r in dn_items]
+
+    budgets = query_model(Budget, 'created_at')
+    data['budgets'] = [_serialize_row(r, get_columns(Budget)) for r in budgets]
+
+    fiscal_periods = FiscalPeriod.query.filter_by(user_id=user_id).all()
+    data['fiscal_periods'] = [_serialize_row(r, get_columns(FiscalPeriod)) for r in fiscal_periods]
+
+    # Metadata
+    meta = {
+        'backup_version': '1.0',
+        'app': 'KH Accounting Software',
+        'exported_at': datetime.utcnow().isoformat(),
+        'exported_by': current_user.full_name,
+        'user_id': user_id,
+        'user_email': user.email,
+        'user_name': user.full_name,
+        'date_from': date_from.isoformat() if date_from else 'all',
+        'date_to': date_to.isoformat() if date_to else 'all',
+    }
+
+    # Record counts
+    record_summary = {k: len(v) for k, v in data.items()}
+    meta['record_counts'] = record_summary
+    meta['total_records'] = sum(record_summary.values())
+
+    # ── Build ZIP ──
+    mem_zip = io.BytesIO()
+    with zipfile.ZipFile(mem_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('backup_meta.json', json.dumps(meta, indent=2))
+        for table_name, rows in data.items():
+            zf.writestr(f'data/{table_name}.json', json.dumps(rows, indent=2))
+            # Also create CSV for convenience
+            if rows:
+                csv_buf = io.StringIO()
+                writer = csv.DictWriter(csv_buf, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+                zf.writestr(f'data/{table_name}.csv', csv_buf.getvalue())
+
+    mem_zip.seek(0)
+
+    # Build filename
+    date_label = ''
+    if date_from:
+        date_label += f'_from_{date_from.isoformat()}'
+    if date_to:
+        date_label += f'_to_{date_to.isoformat()}'
+    if not date_label:
+        date_label = '_full'
+    safe_name = user.full_name.replace(' ', '_')[:30]
+    filename = f'backup_{safe_name}{date_label}.zip'
+
+    log_activity('export', 'Backup', user_id, user.full_name,
+                 f'Exported backup for {user.email} ({meta["total_records"]} records)')
+
+    return send_file(
+        mem_zip,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=filename
+    )

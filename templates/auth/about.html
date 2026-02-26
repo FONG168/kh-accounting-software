@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About — KH Accounting Software Enterprise</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            background: #070b14;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        /* ── Background effects ── */
+        .about-bg {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background:
+                radial-gradient(ellipse 80% 60% at 10% 80%, rgba(59,130,246,.10) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 50% at 90% 20%, rgba(99,102,241,.08) 0%, transparent 70%);
+        }
+        .about-orb {
+            position: fixed; border-radius: 50%; filter: blur(80px); opacity: .25;
+            pointer-events: none; z-index: 0;
+            animation: orbFloat 20s ease-in-out infinite alternate;
+        }
+        .about-orb-1 { width: 350px; height: 350px; background: #3b82f6; top: -8%; right: -5%; }
+        .about-orb-2 { width: 280px; height: 280px; background: #6366f1; bottom: -10%; left: -5%; animation-delay: -8s; }
+        @keyframes orbFloat {
+            0%   { transform: translate(0, 0) scale(1); }
+            50%  { transform: translate(20px, -15px) scale(1.04); }
+            100% { transform: translate(-10px, 10px) scale(.97); }
+        }
+        .about-grid {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .025;
+            background-image:
+                linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* ── Top nav ── */
+        .about-nav {
+            position: relative; z-index: 10;
+            padding: 1.25rem 2rem;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,.04);
+        }
+        .about-nav .nav-brand {
+            display: flex; align-items: center; gap: 12px; text-decoration: none;
+        }
+        .about-nav .nav-brand .logo-kh {
+            font-size: 2rem; font-weight: 900; letter-spacing: -1.5px; line-height: 1;
+            background: linear-gradient(135deg, #fff 0%, #e2e8f0 40%, #3b82f6 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .about-nav .nav-brand .logo-dot { -webkit-text-fill-color: #3b82f6; }
+        .about-nav .nav-brand .brand-name {
+            font-size: 1.1rem; font-weight: 700; color: #cbd5e1; letter-spacing: -.3px;
+        }
+        .about-nav .btn-back {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: .5rem 1.25rem; border-radius: 10px;
+            font-size: .82rem; font-weight: 600; text-decoration: none;
+            color: #94a3b8; background: rgba(255,255,255,.04);
+            border: 1px solid rgba(255,255,255,.06);
+            transition: all .25s ease;
+        }
+        .about-nav .btn-back:hover {
+            background: rgba(59,130,246,.1); border-color: rgba(59,130,246,.25);
+            color: #3b82f6; transform: translateX(-2px);
+        }
+
+        /* ── Main content ── */
+        .about-container {
+            position: relative; z-index: 1;
+            max-width: 780px; margin: 0 auto;
+            padding: 3rem 2rem 4rem;
+        }
+
+        .about-hero {
+            text-align: center; margin-bottom: 3rem;
+            animation: fadeUp .6s ease-out;
+        }
+        .about-hero h1 {
+            font-size: 2.5rem; font-weight: 900; letter-spacing: -1.5px;
+            background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            margin-bottom: .75rem;
+        }
+        .about-hero .hero-subtitle {
+            font-size: 1.05rem; color: #64748b; line-height: 1.7; max-width: 520px; margin: 0 auto;
+        }
+
+        /* ── Cards ── */
+        .about-card {
+            background: rgba(255,255,255,.03);
+            border: 1px solid rgba(255,255,255,.06);
+            border-radius: 20px; padding: 2rem 2.25rem;
+            margin-bottom: 1.5rem;
+            backdrop-filter: blur(12px);
+            transition: border-color .3s ease;
+            animation: fadeUp .6s ease-out both;
+        }
+        .about-card:nth-child(2) { animation-delay: .1s; }
+        .about-card:nth-child(3) { animation-delay: .2s; }
+        .about-card:nth-child(4) { animation-delay: .3s; }
+        .about-card:hover { border-color: rgba(59,130,246,.15); }
+
+        .about-card .card-header-row {
+            display: flex; align-items: center; gap: 14px; margin-bottom: 1rem;
+        }
+        .about-card .card-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; flex-shrink: 0;
+        }
+        .card-icon.blue   { background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.15); color: #3b82f6; }
+        .card-icon.purple { background: rgba(139,92,246,.1);  border: 1px solid rgba(139,92,246,.15); color: #8b5cf6; }
+        .card-icon.green  { background: rgba(34,197,94,.1);   border: 1px solid rgba(34,197,94,.15);  color: #22c55e; }
+        .card-icon.amber  { background: rgba(245,158,11,.1);  border: 1px solid rgba(245,158,11,.15); color: #f59e0b; }
+
+        .about-card h3 {
+            font-size: 1.15rem; font-weight: 700; color: #f1f5f9; letter-spacing: -.3px;
+        }
+        .about-card p {
+            color: #94a3b8; font-size: .92rem; line-height: 1.75; margin: 0;
+        }
+
+        /* ── Feature grid ── */
+        .feature-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+            margin-top: 1.25rem;
+        }
+        .feature-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: .75rem 1rem; border-radius: 12px;
+            background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.04);
+            transition: all .25s ease;
+        }
+        .feature-item:hover {
+            background: rgba(59,130,246,.04); border-color: rgba(59,130,246,.1);
+        }
+        .feature-item .fi-icon {
+            color: #22c55e; font-size: .8rem; margin-top: 2px; flex-shrink: 0;
+        }
+        .feature-item span {
+            font-size: .85rem; color: #94a3b8; line-height: 1.4;
+        }
+
+        /* ── Footer ── */
+        .about-footer {
+            text-align: center; margin-top: 3rem; padding-top: 2rem;
+            border-top: 1px solid rgba(255,255,255,.04);
+            animation: fadeUp .6s ease-out .4s both;
+        }
+        .about-footer .footer-flag {
+            font-size: 2rem; margin-bottom: .5rem;
+        }
+        .about-footer p {
+            color: #475569; font-size: .82rem; line-height: 1.6;
+        }
+        .about-footer .heart { color: #ef4444; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 640px) {
+            .about-container { padding: 2rem 1.25rem 3rem; }
+            .about-hero h1 { font-size: 1.8rem; }
+            .feature-grid { grid-template-columns: 1fr; }
+            .about-card { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background effects -->
+    <div class="about-bg"></div>
+    <div class="about-orb about-orb-1"></div>
+    <div class="about-orb about-orb-2"></div>
+    <div class="about-grid"></div>
+
+    <!-- Nav -->
+    <nav class="about-nav">
+        <a href="{{ url_for('auth.login') }}" class="nav-brand" data-no-translate>
+            <span class="logo-kh">KH<span class="logo-dot">.</span></span>
+            <span class="brand-name">Accounting Software</span>
+        </a>
+        <a href="{{ url_for('auth.login') }}" class="btn-back">
+            <i class="bi bi-arrow-left"></i> Back to Sign In
+        </a>
+    </nav>
+
+    <!-- Content -->
+    <div class="about-container">
+        <div class="about-hero">
+            <h1 data-no-translate>
+                <span class="lang-en">About KH Accounting Software</span>
+                <span class="lang-km" style="display:none">អំពី KH Accounting Software</span>
+            </h1>
+            <p class="hero-subtitle" data-no-translate>
+                <span class="lang-en">A professional, enterprise-grade accounting platform proudly built in Cambodia — designed for businesses of every size and industry.</span>
+                <span class="lang-km" style="display:none">វេទិកាគណនេយ្យកម្រិតសហគ្រាស ដែលបង្កើតក្នុងប្រទេសកម្ពុជា — រចនាសម្រាប់អាជីវកម្មគ្រប់ទំហំ និង គ្រប់វិស័យ។</span>
+            </p>
+        </div>
+
+        <!-- The Story -->
+        <div class="about-card">
+            <div class="card-header-row">
+                <div class="card-icon blue"><i class="bi bi-person-circle"></i></div>
+                <h3 data-no-translate>
+                    <span class="lang-en">The Creator</span>
+                    <span class="lang-km" style="display:none">អ្នកបង្កើត</span>
+                </h3>
+            </div>
+            <p data-no-translate>
+                <span class="lang-en">KH Accounting Software was created by a young Khmer man with a passion for both technology and finance. He studied <strong>Accounting and Finance</strong> at <strong>Build Bright University</strong> in <strong>Sihanoukville, Cambodia</strong>, where he developed a deep understanding of how businesses manage their finances. Combining his academic knowledge with self-taught software engineering skills, he set out to build a world-class accounting solution — made in Cambodia, for the world.</span>
+                <span class="lang-km" style="display:none">KH Accounting Software ត្រូវបានបង្កើតឡើងដោយយុវវ័យខ្មែរម្នាក់ ដែលមានចំណង់ចំណូលចិត្តខ្លាំងទាំងផ្នែកបច្ចេកវិទ្យា និង ហិរញ្ញវត្ថុ។ គាត់បានសិក្សា<strong>គណនេយ្យ និង ហិរញ្ញវត្ថុ</strong> នៅ<strong>សាកលវិទ្យាល័យ Build Bright</strong> ទីក្រុង<strong>ព្រះសីហនុ កម្ពុជា</strong> ដែលគាត់បានទទួលការយល់ដឹងស៊ីជម្រៅអំពីរបៀបគ្រប់គ្រងហិរញ្ញវត្ថុអាជីវកម្ម។ ដោយផ្សំចំណេះដឹងសិក្សារបស់គាត់ជាមួយជំនាញវិស្វកម្មកម្មវិធីដែលរៀនដោយខ្លួនឯង គាត់បានចាប់ផ្តើមបង្កើតដំណោះស្រាយគណនេយ្យកម្រិតពិភពលោក — ផលិតក្នុងប្រទេសកម្ពុជា សម្រាប់ពិភពលោក។</span>
+            </p>
+        </div>
+
+        <!-- The Mission -->
+        <div class="about-card">
+            <div class="card-header-row">
+                <div class="card-icon purple"><i class="bi bi-rocket-takeoff"></i></div>
+                <h3 data-no-translate>
+                    <span class="lang-en">Our Mission</span>
+                    <span class="lang-km" style="display:none">បេសកកម្មរបស់យើង</span>
+                </h3>
+            </div>
+            <p data-no-translate>
+                <span class="lang-en">To empower businesses with professional, easy-to-use accounting software that rivals expensive international solutions. We believe every entrepreneur — whether running a small shop in Phnom Penh or a growing enterprise — deserves powerful financial tools at an accessible price.</span>
+                <span class="lang-km" style="display:none">ដើម្បីពង្រឹងអាជីវកម្មជាមួយកម្មវិធីគណនេយ្យប្រកបដោយវិជ្ជាជីវៈ ងាយស្រួលប្រើ ដែលប្រកួតប្រជែងជាមួយដំណោះស្រាយអន្តរជាតិមានតម្លៃថ្លៃ។ យើងជឿថាសហគ្រិនគ្រប់រូប — មិនថាដំណើរការហាងតូចមួយក្នុងទីក្រុងភ្នំពេញ ឬសហគ្រាសកំពុងរីកចម្រើន — សមនឹងទទួលបានឧបករណ៍ហិរញ្ញវត្ថុដ៏មានអានុភាពក្នុងតម្លៃសមរម្យ។</span>
+            </p>
+        </div>
+
+        <!-- Features -->
+        <div class="about-card">
+            <div class="card-header-row">
+                <div class="card-icon green"><i class="bi bi-stars"></i></div>
+                <h3 data-no-translate>
+                    <span class="lang-en">What Makes Us Special</span>
+                    <span class="lang-km" style="display:none">អ្វីដែលធ្វើឱ្យយើងពិសេស</span>
+                </h3>
+            </div>
+            <p data-no-translate>
+                <span class="lang-en">Built from the ground up with real-world accounting principles and modern web technology:</span>
+                <span class="lang-km" style="display:none">បង្កើតឡើងពីមូលដ្ឋានជាមួយគោលការណ៍គណនេយ្យពិតប្រាកដ និង បច្ចេកវិទ្យាគេហទំព័រទំនើប៖</span>
+            </p>
+            <div class="feature-grid">
+                <div class="feature-item" data-no-translate>
+                    <i class="bi bi-check-circle-fill fi-icon"></i>
+                    <span>
+                        <span class="lang-en">Double-entry bookkeeping</span>
+                        <span class="lang-km" style="display:none">គណនេយ្យបញ្ចូលទ្វេដង</span>
+                    </span>
+                </div>
+                <div class="feature-item" data-no-translate>
+                    <i class="bi bi-check-circle-fill fi-icon"></i>
+                    <span>
+                        <span class="lang-en">Sales, purchases &amp; inventory</span>
+                        <span class="lang-km" style="display:none">ការលក់ ការទិញ និង សារពើភ័ណ្ឌ</span>
+                    </span>
+                </div>
+                <div class="feature-item" data-no-translate>
+                    <i class="bi bi-check-circle-fill fi-icon"></i>
+                    <span>
+                        <span class="lang-en">Profit &amp; loss, balance sheet, cash flow</span>
+                        <span class="lang-km" style="display:none">ចំណេញ និង ខាត តារាងតុល្យការ លំហូរសាច់ប្រាក់</span>
+                    </span>
+                </div>
+                <div class="feature-item" data-no-translate>
+                    <i class="bi bi-check-circle-fill fi-icon"></i>
+                    <span>
+                        <span class="lang-en">Multi-industry category support</span>
+                        <span class="lang-km" style="display:none">ការគាំទ្រប្រភេទពហុឧស្សាហកម្ម</span>
+                    </span>
+                </div>
+                <div class="feature-item" data-no-translate>
+                    <i class="bi bi-check-circle-fill fi-icon"></i>
+                    <span>
+                        <span class="lang-en">Journal entries &amp; audit trail</span>
+                        <span class="lang-km" style="display:none">បញ្ជីកំណត់ត្រា និង កំណត់ត្រាសវនកម្ម</span>
+                    </span>
+                </div>
+                <div class="feature-item" data-no-translate>
+                    <i class="bi bi-check-circle-fill fi-icon"></i>
+                    <span>
+                        <span class="lang-en">Budget management</span>
+                        <span class="lang-km" style="display:none">ការគ្រប់គ្រងថវិកា</span>
+                    </span>
+                </div>
+                <div class="feature-item" data-no-translate>
+                    <i class="bi bi-check-circle-fill fi-icon"></i>
+                    <span>
+                        <span class="lang-en">Cloud sync &amp; secure data</span>
+                        <span class="lang-km" style="display:none">ធ្វើសមកាលកម្មពពក និង ទិន្នន័យសុវត្ថិភាព</span>
+                    </span>
+                </div>
+                <div class="feature-item" data-no-translate>
+                    <i class="bi bi-check-circle-fill fi-icon"></i>
+                    <span>
+                        <span class="lang-en">Credit &amp; debit notes</span>
+                        <span class="lang-km" style="display:none">វិក្កយបត្រឥណទាន និង ឥណពន្ធ</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Built with -->
+        <div class="about-card">
+            <div class="card-header-row">
+                <div class="card-icon amber"><i class="bi bi-code-slash"></i></div>
+                <h3 data-no-translate>
+                    <span class="lang-en">Built in 2026</span>
+                    <span class="lang-km" style="display:none">បង្កើតក្នុងឆ្នាំ ២០២៦</span>
+                </h3>
+            </div>
+            <p data-no-translate>
+                <span class="lang-en">Designed and developed in <strong>2026</strong> in the Kingdom of Cambodia. KH Accounting Software represents the spirit of Khmer innovation — proving that world-class software can be born anywhere, from anyone with the vision and determination to build it.</span>
+                <span class="lang-km" style="display:none">រចនា និង បង្កើតក្នុងឆ្នាំ <strong>២០២៦</strong> នៅក្នុងព្រះរាជាណាចក្រកម្ពុជា។ KH Accounting Software តំណាងឱ្យស្មារតីនៃការច្នៃប្រឌិតខ្មែរ — បង្ហាញថាកម្មវិធីកម្រិតពិភពលោកអាចកើតឡើងគ្រប់ទីកន្លែង ពីនរណាម្នាក់ដែលមានចក្ខុវិស័យ និង ការតាំងចិត្តបង្កើតវា។</span>
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="about-footer" data-no-translate>
+            <div class="footer-flag">🇰🇭</div>
+            <p>
+                <span class="lang-en">Proudly made in Cambodia with <span class="heart">&hearts;</span></span>
+                <span class="lang-km" style="display:none">ផលិតក្នុងប្រទេសកម្ពុជាដោយមោទនភាព ជាមួយ <span class="heart">&hearts;</span></span>
+                <br>
+                &copy; 2026 KH Accounting Software Enterprise. All rights reserved.
+            </p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/translations.js') }}"></script>
+    <script>
+        // Toggle bilingual content on the About page
+        (function() {
+            var lang = localStorage.getItem('kh-lang') || 'en';
+            if (lang === 'km') {
+                // Show Khmer, hide English
+                document.querySelectorAll('.lang-en').forEach(function(el) { el.style.display = 'none'; });
+                document.querySelectorAll('.lang-km').forEach(function(el) { el.style.display = ''; });
+            }
+        })();
+    </script>
+</body>
+</html>

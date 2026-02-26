@@ -1,0 +1,315 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Data Backup & Recovery — System Admin{% endblock %}
+{% block page_title %}Data Backup & Recovery{% endblock %}
+
+{% block extra_css %}
+<style>
+.backup-hero {
+    background: linear-gradient(135deg, rgba(99,102,241,.1), rgba(139,92,246,.08));
+    border: 1px solid rgba(99,102,241,.2);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+}
+.backup-hero h4 { color: #fff; font-weight: 700; margin-bottom: .5rem; }
+.backup-hero p { color: var(--admin-text-muted); font-size: .85rem; margin-bottom: 0; }
+
+.backup-form-card {
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+.backup-form-card .card-header-custom {
+    padding: 1.15rem 1.5rem;
+    border-bottom: 1px solid var(--admin-border);
+    display: flex; align-items: center; gap: 12px;
+}
+.backup-form-card .card-header-custom .icon-box {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+}
+.backup-form-card .card-body-custom { padding: 1.5rem; }
+
+.step-label {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff; font-size: .7rem; font-weight: 800; flex-shrink: 0;
+    margin-right: 10px;
+}
+
+.user-select-card {
+    background: var(--admin-bg);
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    padding: .75rem 1rem;
+    cursor: pointer;
+    transition: all .15s ease;
+}
+.user-select-card:hover {
+    border-color: var(--admin-accent);
+    background: rgba(99,102,241,.05);
+}
+.user-select-card.selected {
+    border-color: #6366f1;
+    background: rgba(99,102,241,.1);
+    box-shadow: 0 0 0 2px rgba(99,102,241,.3);
+}
+
+.preview-box {
+    background: var(--admin-bg);
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    min-height: 120px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--admin-text-muted);
+    font-size: .85rem;
+    transition: all .2s;
+}
+.preview-box.has-data {
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-direction: column;
+}
+.preview-stat { display: flex; justify-content: space-between; width: 100%; padding: 4px 0; font-size: .82rem; }
+.preview-stat .label { color: var(--admin-text-muted); }
+.preview-stat .value { color: #fff; font-weight: 600; }
+
+.download-btn {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none; border-radius: 12px; color: #fff;
+    font-weight: 700; font-size: .85rem;
+    padding: .75rem 2rem;
+    transition: all .2s;
+    box-shadow: 0 4px 18px rgba(99,102,241,.3);
+}
+.download-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(99,102,241,.45);
+    color: #fff;
+}
+.download-btn:disabled {
+    opacity: .5; transform: none; box-shadow: none; cursor: not-allowed;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<div class="backup-hero">
+    <h4><i class="bi bi-cloud-download me-2"></i>Data Backup & Recovery</h4>
+    <p>Export any user's accounting data as a downloadable ZIP file. The user can then restore their data by uploading this file. Select a user, optionally pick a date range, and click download.</p>
+</div>
+
+<form method="POST" action="{{ url_for('admin.backup_download') }}" id="backupForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-4">
+        <!-- Left: Form -->
+        <div class="col-lg-7">
+            <div class="backup-form-card">
+                <div class="card-header-custom">
+                    <div class="icon-box" style="background:rgba(99,102,241,.12);color:#818cf8;">
+                        <i class="bi bi-database-down"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold" style="font-size:.9rem;">Export User Data</div>
+                        <div style="font-size:.72rem;color:var(--admin-text-muted);">Select user and date range</div>
+                    </div>
+                </div>
+                <div class="card-body-custom">
+                    <!-- Step 1: Select User -->
+                    <div class="mb-4">
+                        <label class="form-label d-flex align-items-center mb-3">
+                            <span class="step-label">1</span>
+                            <span class="fw-semibold" style="font-size:.9rem;">Select User</span>
+                        </label>
+                        <select name="user_id" id="userSelect" class="form-select" required
+                                style="background:var(--admin-bg);border-color:var(--admin-border);color:var(--admin-text);">
+                            <option value="">— Choose a user —</option>
+                            {% for u in users %}
+                            <option value="{{ u.id }}"
+                                    data-name="{{ u.full_name }}"
+                                    data-email="{{ u.email }}"
+                                    data-status="{{ u.account_status }}"
+                                    data-created="{{ u.created_at.strftime('%b %d, %Y') if u.created_at else 'N/A' }}">
+                                {{ u.full_name }} ({{ u.email }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Step 2: Date Range -->
+                    <div class="mb-4">
+                        <label class="form-label d-flex align-items-center mb-3">
+                            <span class="step-label">2</span>
+                            <span class="fw-semibold" style="font-size:.9rem;">Date Range <span style="color:var(--admin-text-muted);font-weight:400;font-size:.78rem;">(optional — leave blank for all data)</span></span>
+                        </label>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="form-label" style="font-size:.78rem;color:var(--admin-text-muted);">From Date</label>
+                                <input type="date" name="date_from" id="dateFrom" class="form-control"
+                                       style="background:var(--admin-bg);border-color:var(--admin-border);color:var(--admin-text);">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label" style="font-size:.78rem;color:var(--admin-text-muted);">To Date</label>
+                                <input type="date" name="date_to" id="dateTo" class="form-control"
+                                       style="background:var(--admin-bg);border-color:var(--admin-border);color:var(--admin-text);">
+                            </div>
+                        </div>
+                        <div class="mt-2 d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm" onclick="setRange('week')" style="background:var(--admin-surface2);color:var(--admin-text-muted);border:1px solid var(--admin-border);font-size:.72rem;border-radius:8px;">Last 7 Days</button>
+                            <button type="button" class="btn btn-sm" onclick="setRange('month')" style="background:var(--admin-surface2);color:var(--admin-text-muted);border:1px solid var(--admin-border);font-size:.72rem;border-radius:8px;">Last 30 Days</button>
+                            <button type="button" class="btn btn-sm" onclick="setRange('quarter')" style="background:var(--admin-surface2);color:var(--admin-text-muted);border:1px solid var(--admin-border);font-size:.72rem;border-radius:8px;">Last 90 Days</button>
+                            <button type="button" class="btn btn-sm" onclick="setRange('year')" style="background:var(--admin-surface2);color:var(--admin-text-muted);border:1px solid var(--admin-border);font-size:.72rem;border-radius:8px;">Last Year</button>
+                            <button type="button" class="btn btn-sm" onclick="setRange('all')" style="background:var(--admin-surface2);color:var(--admin-text-muted);border:1px solid var(--admin-border);font-size:.72rem;border-radius:8px;">All Data</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Download -->
+                    <div>
+                        <label class="form-label d-flex align-items-center mb-3">
+                            <span class="step-label">3</span>
+                            <span class="fw-semibold" style="font-size:.9rem;">Download Backup</span>
+                        </label>
+                        <button type="submit" class="download-btn" id="downloadBtn" disabled>
+                            <i class="bi bi-file-earmark-zip me-2"></i>Download ZIP Backup
+                        </button>
+                        <div class="form-text mt-2" style="font-size:.75rem;color:var(--admin-text-muted);">
+                            <i class="bi bi-info-circle me-1"></i>
+                            The ZIP contains JSON + CSV files. Send it to the user so they can upload and restore from their settings page.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Preview -->
+        <div class="col-lg-5">
+            <div class="backup-form-card">
+                <div class="card-header-custom">
+                    <div class="icon-box" style="background:rgba(34,197,94,.12);color:#4ade80;">
+                        <i class="bi bi-eye"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold" style="font-size:.9rem;">Preview</div>
+                        <div style="font-size:.72rem;color:var(--admin-text-muted);">User data summary</div>
+                    </div>
+                </div>
+                <div class="card-body-custom">
+                    <div class="preview-box" id="previewBox">
+                        <div class="text-center">
+                            <i class="bi bi-person-badge" style="font-size:2rem;opacity:.4;"></i>
+                            <div class="mt-2">Select a user to see a preview</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instructions Card -->
+            <div class="backup-form-card mt-3">
+                <div class="card-header-custom">
+                    <div class="icon-box" style="background:rgba(245,158,11,.12);color:#fbbf24;">
+                        <i class="bi bi-question-circle"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold" style="font-size:.9rem;">How It Works</div>
+                    </div>
+                </div>
+                <div class="card-body-custom" style="font-size:.82rem;color:var(--admin-text-muted);line-height:1.7;">
+                    <ol class="mb-0 ps-3">
+                        <li><strong style="color:var(--admin-text);">Select</strong> the user who needs data recovery</li>
+                        <li><strong style="color:var(--admin-text);">Choose</strong> a date range or export all data</li>
+                        <li><strong style="color:var(--admin-text);">Download</strong> the ZIP backup file</li>
+                        <li><strong style="color:var(--admin-text);">Send</strong> the ZIP file to the user</li>
+                        <li>User goes to <strong style="color:var(--admin-text);">Settings → Restore Data</strong> and uploads the ZIP</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    var userSelect = document.getElementById('userSelect');
+    var downloadBtn = document.getElementById('downloadBtn');
+    var previewBox = document.getElementById('previewBox');
+
+    userSelect.addEventListener('change', function(){
+        var uid = this.value;
+        if(!uid) {
+            downloadBtn.disabled = true;
+            previewBox.className = 'preview-box';
+            previewBox.innerHTML = '<div class="text-center"><i class="bi bi-person-badge" style="font-size:2rem;opacity:.4;"></i><div class="mt-2">Select a user to see a preview</div></div>';
+            return;
+        }
+        downloadBtn.disabled = false;
+
+        // Fetch user data counts
+        previewBox.className = 'preview-box';
+        previewBox.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-light" role="status"></div><div class="mt-2">Loading...</div></div>';
+
+        fetch('/admin/users/' + uid + '/delete-info')
+            .then(r => r.json())
+            .then(info => {
+                previewBox.className = 'preview-box has-data';
+                var html = '<div class="mb-2" style="font-size:.9rem;font-weight:700;color:#fff;">' + info.full_name + '</div>';
+                html += '<div class="mb-3" style="font-size:.78rem;color:var(--admin-text-muted);">' + info.email + ' · Joined ' + info.registered_on_display + '</div>';
+                html += '<div style="width:100%;border-top:1px solid var(--admin-border);padding-top:8px;">';
+
+                var counts = info.counts;
+                var rows = [
+                    ['Invoices', counts.invoices],
+                    ['Bills', counts.bills],
+                    ['Expenses', counts.expenses],
+                    ['Journal Entries', counts.journals],
+                    ['Customers', counts.customers],
+                    ['Vendors', counts.vendors],
+                    ['Products', counts.products],
+                    ['Accounts', counts.accounts],
+                    ['Categories', counts.categories],
+                    ['Payments Recv', counts.payments_received],
+                    ['Payments Made', counts.payments_made],
+                    ['Credit Notes', counts.credit_notes],
+                    ['Debit Notes', counts.debit_notes],
+                    ['Budgets', counts.budgets],
+                ];
+                rows.forEach(function(r){
+                    html += '<div class="preview-stat"><span class="label">' + r[0] + '</span><span class="value">' + r[1] + '</span></div>';
+                });
+                html += '<div style="border-top:1px solid var(--admin-border);margin-top:8px;padding-top:8px;">';
+                html += '<div class="preview-stat"><span class="label fw-bold" style="color:#818cf8;">Total Records</span><span class="value" style="color:#818cf8;font-size:.95rem;">' + info.total_records + '</span></div>';
+                html += '</div></div>';
+                previewBox.innerHTML = html;
+            })
+            .catch(function(){
+                previewBox.innerHTML = '<div class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i> Failed to load preview</div>';
+            });
+    });
+
+    window.setRange = function(range){
+        var today = new Date();
+        var from = new Date();
+        var dateFrom = document.getElementById('dateFrom');
+        var dateTo = document.getElementById('dateTo');
+
+        if(range === 'all') {
+            dateFrom.value = '';
+            dateTo.value = '';
+            return;
+        }
+        dateTo.value = today.toISOString().slice(0,10);
+        if(range === 'week') from.setDate(today.getDate() - 7);
+        else if(range === 'month') from.setDate(today.getDate() - 30);
+        else if(range === 'quarter') from.setDate(today.getDate() - 90);
+        else if(range === 'year') from.setFullYear(today.getFullYear() - 1);
+        dateFrom.value = from.toISOString().slice(0,10);
+    };
+})();
+</script>
+{% endblock %}

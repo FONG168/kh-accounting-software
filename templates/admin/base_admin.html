@@ -202,6 +202,11 @@
                 <i class="bi bi-megaphone"></i> Announcements
             </a>
 
+            <div class="admin-nav-section">Data Management</div>
+            <a href="{{ url_for('admin.backup_page') }}" class="admin-nav-link {% if request.endpoint in ('admin.backup_page','admin.backup_download') %}active{% endif %}">
+                <i class="bi bi-cloud-download"></i> Backup & Recovery
+            </a>
+
             <div class="admin-nav-section">Support</div>
             <a href="{{ url_for('admin.chat_list') }}" class="admin-nav-link {% if request.endpoint in ('admin.chat_list','admin.chat_room') %}active{% endif %}">
                 <i class="bi bi-chat-dots"></i> Live Chat

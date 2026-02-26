@@ -1,10 +1,21 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_login import login_user, logout_user, current_user
 from database.models import db, User, CompanySettings, SystemSettings, log_activity
 from datetime import datetime
 import re
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+
+@auth_bp.route('/set-language', methods=['POST'])
+def set_language():
+    """Set user language preference in session."""
+    data = request.get_json(silent=True) or {}
+    lang = data.get('language', 'en')
+    if lang not in ('en', 'km'):
+        lang = 'en'
+    session['language'] = lang
+    return jsonify({'status': 'ok', 'language': lang})
 
 
 def validate_password_strength(password):
@@ -292,6 +303,11 @@ def login():
             return render_template('auth/login.html', email=email)
 
     return render_template('auth/login.html')
+
+
+@auth_bp.route('/about')
+def about():
+    return render_template('auth/about.html')
 
 
 @auth_bp.route('/logout')

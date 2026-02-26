@@ -22,7 +22,7 @@
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <div class="brand-logo-wrap">
+            <div class="brand-logo-wrap" data-no-translate>
                 <div class="brand-monogram">KH</div>
                 <div class="brand-text">
                     <span class="brand-name">Accounting Software</span>
@@ -148,6 +148,9 @@
             <a href="{{ url_for('audit.index') }}" class="sidebar-link {% if request.endpoint and request.endpoint.startswith('audit') %}active{% endif %}">
                 <i class="bi bi-shield-check"></i> <span>Audit Log</span>
             </a>
+            <a href="{{ url_for('setup.restore_data_page') }}" class="sidebar-link {% if request.endpoint and request.endpoint.startswith('setup.restore') %}active{% endif %}">
+                <i class="bi bi-cloud-upload"></i> <span>Restore Data</span>
+            </a>
 
             {% if current_user.is_authenticated and not current_user.is_superadmin %}
             <div class="sidebar-section">SUPPORT</div>
@@ -186,6 +189,23 @@
                 </span>
                 {% endif %}
                 <span class="company-name d-none d-lg-inline">{{ config.COMPANY_NAME }}</span>
+                <!-- Language Toggle -->
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" style="font-size:.75rem;padding:4px 12px;">
+                        <i class="bi bi-translate"></i>
+                        <span id="currentLangLabel">EN</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" style="min-width:140px;" data-no-translate>
+                        <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="setLanguage('en');return false;"><span>🇬🇧</span> English</a></li>
+                        <li><a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="setLanguage('km');return false;"><span>🇰🇭</span> ខ្មែរ</a></li>
+                    </ul>
+                </div>
+                <script>
+                    (function(){
+                        var lbl = document.getElementById('currentLangLabel');
+                        if(lbl) lbl.textContent = (localStorage.getItem('kh-lang')==='km') ? 'KM' : 'EN';
+                    })();
+                </script>
                 <!-- Dark Mode Toggle -->
                 <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
                     <i class="bi bi-moon-stars-fill"></i>
@@ -280,6 +300,7 @@
     })();
     </script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/translations.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

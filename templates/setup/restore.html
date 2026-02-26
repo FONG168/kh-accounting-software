@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}Restore Data — KH Accounting Software Enterprise{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-cloud-upload me-2"></i>Restore Data from Backup</h2>
+</div>
+
+<div class="row g-4">
+    <!-- Left: Upload Form -->
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-file-earmark-zip me-1"></i>Upload Backup File
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('setup.restore_data_upload') }}" enctype="multipart/form-data" id="restoreForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <!-- Step 1: Upload -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">
+                            <span class="badge bg-primary rounded-pill me-1">1</span>
+                            Select Backup ZIP File
+                        </label>
+                        <div class="upload-zone" id="uploadZone">
+                            <input type="file" name="backup_file" id="backupFile" accept=".zip" required class="d-none">
+                            <div class="text-center py-4" id="uploadPrompt" style="cursor:pointer;" onclick="document.getElementById('backupFile').click();">
+                                <i class="bi bi-cloud-arrow-up" style="font-size:2.5rem;opacity:.5;"></i>
+                                <div class="mt-2 fw-semibold">Click to select or drag & drop your ZIP file</div>
+                                <div class="text-muted" style="font-size:.8rem;">Only .zip files from admin backup are supported</div>
+                            </div>
+                            <div class="d-none text-center py-3" id="uploadSelected">
+                                <i class="bi bi-file-earmark-zip-fill text-success" style="font-size:2rem;"></i>
+                                <div class="mt-1 fw-semibold" id="selectedFileName"></div>
+                                <div class="text-muted" style="font-size:.78rem;" id="selectedFileSize"></div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="clearFile()">
+                                    <i class="bi bi-x-circle me-1"></i>Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Restore Mode -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">
+                            <span class="badge bg-primary rounded-pill me-1">2</span>
+                            Restore Mode
+                        </label>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="form-check p-3 border rounded" style="cursor:pointer;"
+                                     onclick="document.getElementById('modeMerge').checked=true;">
+                                    <input class="form-check-input" type="radio" name="restore_mode" value="merge" id="modeMerge" checked>
+                                    <label class="form-check-label" for="modeMerge" style="cursor:pointer;">
+                                        <div class="fw-semibold"><i class="bi bi-plus-circle me-1 text-success"></i>Merge</div>
+                                        <div class="text-muted" style="font-size:.78rem;">Add backup data to your existing records. No data will be deleted.</div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check p-3 border rounded" style="cursor:pointer;"
+                                     onclick="document.getElementById('modeReplace').checked=true;">
+                                    <input class="form-check-input" type="radio" name="restore_mode" value="replace" id="modeReplace">
+                                    <label class="form-check-label" for="modeReplace" style="cursor:pointer;">
+                                        <div class="fw-semibold"><i class="bi bi-arrow-repeat me-1 text-warning"></i>Replace</div>
+                                        <div class="text-muted" style="font-size:.78rem;">Delete all current data first, then import backup. <strong class="text-danger">Irreversible!</strong></div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Confirm -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <span class="badge bg-primary rounded-pill me-1">3</span>
+                            Confirm & Restore
+                        </label>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="confirmCheck" required>
+                            <label class="form-check-label" for="confirmCheck" style="font-size:.85rem;">
+                                I understand this will import data into my account and confirm I want to proceed.
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="restoreBtn" disabled>
+                            <i class="bi bi-cloud-upload me-2"></i>Restore Data
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Instructions -->
+    <div class="col-lg-5">
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-question-circle me-1"></i>How to Restore
+            </div>
+            <div class="card-body" style="font-size:.85rem;line-height:1.75;">
+                <ol class="mb-0 ps-3">
+                    <li>Request your admin to export a backup of your data</li>
+                    <li>The admin will send you a .zip file</li>
+                    <li>Upload the ZIP file using the form on the left</li>
+                    <li>Choose <strong>Merge</strong> (add to existing) or <strong>Replace</strong> (clean start)</li>
+                    <li>Click <strong>Restore Data</strong> and wait for import to complete</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-shield-exclamation me-1"></i>Important Notes
+            </div>
+            <div class="card-body" style="font-size:.85rem;line-height:1.75;">
+                <ul class="mb-0 ps-3">
+                    <li><strong>Merge mode</strong> is safe — it only adds new records alongside your existing data</li>
+                    <li><strong>Replace mode</strong> will permanently delete all your current data before importing — use with caution</li>
+                    <li>Only ZIP files generated by the admin backup feature are supported</li>
+                    <li>The backup file must contain a <code>backup_meta.json</code> file to be valid</li>
+                    <li>Large backups may take a few moments to import</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.upload-zone {
+    border: 2px dashed var(--border, #dee2e6);
+    border-radius: 12px;
+    transition: all .2s;
+    background: var(--card-bg, #fff);
+}
+.upload-zone.dragover {
+    border-color: var(--bs-primary);
+    background: rgba(99, 102, 241, .05);
+}
+</style>
+
+<script>
+(function(){
+    var fileInput = document.getElementById('backupFile');
+    var uploadZone = document.getElementById('uploadZone');
+    var promptEl = document.getElementById('uploadPrompt');
+    var selectedEl = document.getElementById('uploadSelected');
+    var fileNameEl = document.getElementById('selectedFileName');
+    var fileSizeEl = document.getElementById('selectedFileSize');
+    var confirmCheck = document.getElementById('confirmCheck');
+    var restoreBtn = document.getElementById('restoreBtn');
+
+    function updateBtn() {
+        restoreBtn.disabled = !(fileInput.files.length > 0 && confirmCheck.checked);
+    }
+
+    fileInput.addEventListener('change', function(){
+        if(this.files.length > 0) {
+            var f = this.files[0];
+            fileNameEl.textContent = f.name;
+            fileSizeEl.textContent = (f.size / 1024).toFixed(1) + ' KB';
+            promptEl.classList.add('d-none');
+            selectedEl.classList.remove('d-none');
+        }
+        updateBtn();
+    });
+
+    confirmCheck.addEventListener('change', updateBtn);
+
+    window.clearFile = function(){
+        fileInput.value = '';
+        promptEl.classList.remove('d-none');
+        selectedEl.classList.add('d-none');
+        updateBtn();
+    };
+
+    // Drag & drop
+    ['dragenter','dragover'].forEach(function(ev){
+        uploadZone.addEventListener(ev, function(e){ e.preventDefault(); uploadZone.classList.add('dragover'); });
+    });
+    ['dragleave','drop'].forEach(function(ev){
+        uploadZone.addEventListener(ev, function(e){ e.preventDefault(); uploadZone.classList.remove('dragover'); });
+    });
+    uploadZone.addEventListener('drop', function(e){
+        if(e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            fileInput.dispatchEvent(new Event('change'));
+        }
+    });
+})();
+</script>
+{% endblock %}
