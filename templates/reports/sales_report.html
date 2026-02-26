@@ -9,7 +9,7 @@
     </div>
 </div>
 
-<div class="card mb-3">
+<div class="card mb-3 filter-bar">
     <div class="card-body py-2">
         <form method="GET" class="row g-2 align-items-end">
             <div class="col-6 col-sm-auto">
@@ -25,27 +25,24 @@
     </div>
 </div>
 
-<!-- Summary Cards -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-4">
-        <div class="stat-card bg-primary-gradient">
-            <div class="stat-label">Total Sales</div>
-            <div class="stat-value">{{ currency_symbol }}{{ "{:,.2f}".format(total_sales) }}</div>
-            <div class="stat-icon"><i class="bi bi-receipt"></i></div>
-        </div>
-    </div>
-    <div class="col-6 col-md-4">
-        <div class="stat-card bg-success-gradient">
-            <div class="stat-label">Total Collected</div>
-            <div class="stat-value">{{ currency_symbol }}{{ "{:,.2f}".format(total_paid) }}</div>
-            <div class="stat-icon"><i class="bi bi-cash"></i></div>
-        </div>
-    </div>
-    <div class="col-6 col-md-4">
-        <div class="stat-card bg-warning-gradient">
-            <div class="stat-label">Outstanding</div>
-            <div class="stat-value">{{ currency_symbol }}{{ "{:,.2f}".format(total_outstanding) }}</div>
-            <div class="stat-icon"><i class="bi bi-hourglass"></i></div>
+<!-- Summary Strip -->
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-around align-items-center text-center flex-wrap gap-1">
+            <div class="px-2 py-1">
+                <small class="text-muted d-block" style="font-size:.72rem;"><i class="bi bi-receipt me-1"></i>Total Sales</small>
+                <span class="fw-bold text-primary" style="font-size:.95rem;">{{ currency_symbol }}{{ "{:,.2f}".format(total_sales) }}</span>
+            </div>
+            <div class="vr d-none d-sm-block mx-1" style="height:32px;"></div>
+            <div class="px-2 py-1">
+                <small class="text-muted d-block" style="font-size:.72rem;"><i class="bi bi-cash me-1"></i>Collected</small>
+                <span class="fw-bold text-success" style="font-size:.95rem;">{{ currency_symbol }}{{ "{:,.2f}".format(total_paid) }}</span>
+            </div>
+            <div class="vr d-none d-sm-block mx-1" style="height:32px;"></div>
+            <div class="px-2 py-1">
+                <small class="text-muted d-block" style="font-size:.72rem;"><i class="bi bi-hourglass me-1"></i>Outstanding</small>
+                <span class="fw-bold text-warning" style="font-size:.95rem;">{{ currency_symbol }}{{ "{:,.2f}".format(total_outstanding) }}</span>
+            </div>
         </div>
     </div>
 </div>

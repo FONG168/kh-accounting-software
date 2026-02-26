@@ -391,6 +391,10 @@ class Invoice(db.Model):
                 self.paid_date = date.today()
         elif self.amount_paid > 0:
             self.status = 'partial'
+            self.paid_date = None
+        else:
+            self.status = 'owed'
+            self.paid_date = None
 
     @property
     def days_until_due(self):
@@ -484,6 +488,10 @@ class Bill(db.Model):
                 self.paid_date = date.today()
         elif self.amount_paid > 0:
             self.status = 'partial'
+            self.paid_date = None
+        else:
+            self.status = 'owed'
+            self.paid_date = None
 
     @property
     def days_until_due(self):
@@ -574,12 +582,14 @@ class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     user_name = db.Column(db.String(200), default='')          # denormalised for speed
-    action = db.Column(db.String(20), nullable=False)           # create, update, delete
+    user_role = db.Column(db.String(20), default='')            # role at time of action
+    action = db.Column(db.String(20), nullable=False)           # create, update, delete, login, etc.
     entity_type = db.Column(db.String(50), nullable=False)      # Invoice, Bill, Customer …
     entity_id = db.Column(db.Integer)
     entity_label = db.Column(db.String(200), default='')        # human-readable (e.g. "INV-00012")
     details = db.Column(db.Text, default='')                    # free-form or JSON diff
     ip_address = db.Column(db.String(45), default='')
+    user_agent = db.Column(db.String(500), default='')          # browser / device info
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
     user = db.relationship('User', foreign_keys=[user_id], lazy='select')
@@ -809,17 +819,21 @@ def log_activity(action, entity_type, entity_id=None, entity_label='', details='
     try:
         user_id = current_user.id if current_user and current_user.is_authenticated else None
         user_name = current_user.full_name if current_user and current_user.is_authenticated else 'System'
+        user_role = current_user.role if current_user and current_user.is_authenticated else ''
         ip = flask_request.remote_addr if flask_request else ''
+        ua = flask_request.headers.get('User-Agent', '') if flask_request else ''
 
         entry = AuditLog(
             user_id=user_id,
             user_name=user_name,
+            user_role=user_role,
             action=action,
             entity_type=entity_type,
             entity_id=entity_id,
             entity_label=str(entity_label),
             details=str(details),
             ip_address=ip or '',
+            user_agent=ua[:500] if ua else '',
         )
         db.session.add(entry)
         # Don't commit here — the caller usually commits after its own work.

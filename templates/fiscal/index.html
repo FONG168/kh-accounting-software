@@ -17,9 +17,9 @@
                     <th>Period</th>
                     <th>Year</th>
                     <th>Status</th>
-                    <th>Locked By</th>
-                    <th>Locked At</th>
-                    <th>Notes</th>
+                    <th class="d-table-cell-lg">Locked By</th>
+                    <th class="d-table-cell-lg">Locked At</th>
+                    <th class="d-table-cell-md">Notes</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -35,9 +35,9 @@
                         <span class="badge bg-success"><i class="bi bi-unlock-fill me-1"></i>Open</span>
                         {% endif %}
                     </td>
-                    <td>{{ p.locked_by.full_name if p.locked_by else '' }}</td>
-                    <td>{{ p.locked_at.strftime('%b %d, %Y %H:%M') if p.locked_at else '' }}</td>
-                    <td>{{ p.notes }}</td>
+                    <td class="d-table-cell-lg">{{ p.locked_by.full_name if p.locked_by else '' }}</td>
+                    <td class="d-table-cell-lg">{{ p.locked_at.strftime('%b %d, %Y %H:%M') if p.locked_at else '' }}</td>
+                    <td class="d-table-cell-md">{{ p.notes }}</td>
                     <td class="text-end">
                         {% if p.is_locked %}
                         <form method="POST" action="{{ url_for('fiscal.unlock', id=p.id) }}" class="d-inline"

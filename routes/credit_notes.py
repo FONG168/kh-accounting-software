@@ -162,7 +162,7 @@ def create():
                     else:
                         invoice.status = 'partial'
 
-            db.session.commit()
+            db.session.flush()
             log_activity('create', 'Credit Note', cn.id, cn.credit_note_number,
                          f'Created credit note {cn.credit_note_number} for {cn.customer.name}')
             db.session.commit()

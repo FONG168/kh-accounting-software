@@ -2,94 +2,245 @@
 {% block title %}Inventory Report{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h2><i class="bi bi-boxes me-2"></i>Inventory Report</h2>
+    <div>
+        <h2><i class="bi bi-boxes me-2"></i>Inventory Report</h2>
+        <p class="text-muted mb-0 d-none d-md-block">Stock levels, movements &amp; tracking</p>
+    </div>
     <div class="d-flex gap-2">
-        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
-        <button onclick="exportReportPDF('Inventory_Report')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i><span class="d-none d-sm-inline">Print</span></button>
+        <button onclick="exportReportPDF('Inventory_Report')" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i><span class="d-none d-sm-inline">PDF</span></button>
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-4">
-        <div class="stat-card bg-info-gradient">
-            <div class="stat-label">Total Inventory Value</div>
-            <div class="stat-value">{{ currency_symbol }}{{ "{:,.2f}".format(total_value) }}</div>
-            <div class="stat-icon"><i class="bi bi-boxes"></i></div>
+<!-- ─── KPI CARDS ─────────────────────────────────────────── -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left:4px solid var(--bs-primary) !important; border-left-style:solid !important;">
+            <div class="card-body py-3 px-3 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:46px;height:46px;background:rgba(var(--bs-primary-rgb),.1);">
+                    <i class="bi bi-boxes fs-5 text-primary"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-muted text-uppercase fw-semibold" style="font-size:.68rem;letter-spacing:.5px;">Inventory Value</div>
+                    <div class="fw-bold text-primary" style="font-size:1.15rem;line-height:1.2;">{{ currency_symbol }}{{ "{:,.2f}".format(total_value) }}</div>
+                    <div class="text-muted" style="font-size:.7rem;">{{ products|length }} item{{ 's' if products|length != 1 }}</div>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-6 col-md-4">
-        <div class="stat-card bg-warning-gradient">
-            <div class="stat-label">Low Stock Items</div>
-            <div class="stat-value">{{ low_stock|length }}</div>
-            <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left:4px solid var(--bs-success) !important; border-left-style:solid !important;">
+            <div class="card-body py-3 px-3 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:46px;height:46px;background:rgba(var(--bs-success-rgb),.1);">
+                    <i class="bi bi-box-arrow-in-down fs-5 text-success"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-muted text-uppercase fw-semibold" style="font-size:.68rem;letter-spacing:.5px;">Stock In</div>
+                    <div class="fw-bold text-success" style="font-size:1.15rem;line-height:1.2;">{{ "{:,.0f}".format(total_stock_in) }}</div>
+                    <div class="text-muted" style="font-size:.7rem;">received</div>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-6 col-md-4">
-        <div class="stat-card bg-danger-gradient">
-            <div class="stat-label">Out of Stock</div>
-            <div class="stat-value">{{ out_of_stock|length }}</div>
-            <div class="stat-icon"><i class="bi bi-x-circle"></i></div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left:4px solid var(--bs-danger) !important; border-left-style:solid !important;">
+            <div class="card-body py-3 px-3 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:46px;height:46px;background:rgba(var(--bs-danger-rgb),.1);">
+                    <i class="bi bi-box-arrow-up fs-5 text-danger"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-muted text-uppercase fw-semibold" style="font-size:.68rem;letter-spacing:.5px;">Stock Out</div>
+                    <div class="fw-bold text-danger" style="font-size:1.15rem;line-height:1.2;">{{ "{:,.0f}".format(total_stock_out) }}</div>
+                    <div class="text-muted" style="font-size:.7rem;">issued</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left:4px solid var(--bs-warning) !important; border-left-style:solid !important;">
+            <div class="card-body py-3 px-3 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:46px;height:46px;background:rgba(var(--bs-warning-rgb),.1);">
+                    <i class="bi bi-sliders fs-5 text-warning"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-muted text-uppercase fw-semibold" style="font-size:.68rem;letter-spacing:.5px;">Adjustments</div>
+                    <div class="fw-bold text-warning" style="font-size:1.15rem;line-height:1.2;">{{ total_adjustments }}</div>
+                    <div class="text-muted" style="font-size:.7rem;">corrections</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-{% if low_stock %}
-<div class="card mb-3">
-    <div class="card-header"><i class="bi bi-exclamation-triangle text-warning me-1"></i>Low Stock Alert</div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-        <table class="table mb-0">
-            <thead><tr><th>SKU</th><th>Product</th><th class="text-end">On Hand</th><th class="text-end">Reorder Level</th></tr></thead>
-            <tbody>
-                {% for p in low_stock %}
-                <tr class="table-warning">
-                    <td><code>{{ p.sku }}</code></td>
-                    <td>{{ p.name }}</td>
-                    <td class="text-end text-danger fw-bold">{{ p.quantity_on_hand }} {{ p.unit }}</td>
-                    <td class="text-end">{{ p.reorder_level }} {{ p.unit }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        </div>
+<!-- ─── ALERTS ────────────────────────────────────────────── -->
+{% if negative_stock %}
+<div class="alert alert-danger d-flex align-items-start mb-3 py-2">
+    <i class="bi bi-exclamation-triangle-fill me-2 mt-1"></i>
+    <div>
+        <strong>Negative Stock Alert!</strong>
+        {% for p in negative_stock %}
+        <span class="badge bg-danger ms-1">{{ p.sku }} {{ p.name }}: {{ p.quantity_on_hand }} {{ p.unit }}</span>
+        {% endfor %}
+        <div class="small mt-1">These items show negative quantities — please do a stock count correction.</div>
     </div>
 </div>
 {% endif %}
 
+{% if low_stock %}
+<div class="alert alert-warning d-flex align-items-start mb-3 py-2">
+    <i class="bi bi-exclamation-circle me-2 mt-1"></i>
+    <div>
+        <strong>Low Stock ({{ low_stock|length }} items)</strong>
+        {% for p in low_stock %}
+        <span class="badge bg-warning text-dark ms-1">{{ p.sku }}: {{ p.quantity_on_hand }}/{{ p.reorder_level }}</span>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- ─── VIEW TABS ─────────────────────────────────────────── -->
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link {{ 'active' if view_mode == 'summary' }}"
+           href="{{ url_for('reports.inventory_report', view='summary') }}">
+            <i class="bi bi-table me-1"></i>Product Summary
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {{ 'active' if view_mode == 'movements' }}"
+           href="{{ url_for('reports.inventory_report', view='movements') }}">
+            <i class="bi bi-arrow-left-right me-1"></i>Stock Movements
+        </a>
+    </li>
+</ul>
+
+{% if view_mode == 'summary' %}
+<!-- ══════════════════════════════════════════════════════════
+     PRODUCT SUMMARY VIEW
+     ══════════════════════════════════════════════════════════ -->
+
+<!-- Filter Bar -->
+<div class="card mb-3 filter-bar">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <input type="hidden" name="view" value="summary">
+            <div class="col-6 col-md-4">
+                <label class="form-label small mb-1">Product</label>
+                <select name="product_id" class="form-select form-select-sm">
+                    <option value="">All Products</option>
+                    {% for p in all_products %}
+                    <option value="{{ p.id }}" {{ 'selected' if filter_product_id == p.id }}>{{ p.sku }} — {{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Search</label>
+                <input type="text" name="q" class="form-control form-control-sm" placeholder="SKU or product name..." value="{{ search_q }}">
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Stock Status</label>
+                <select name="stock_status" class="form-select form-select-sm">
+                    <option value="">All</option>
+                    <option value="low" {{ 'selected' if filter_stock_status == 'low' }}>Low Stock</option>
+                    <option value="out" {{ 'selected' if filter_stock_status == 'out' }}>Out of Stock</option>
+                    <option value="negative" {{ 'selected' if filter_stock_status == 'negative' }}>Negative</option>
+                    <option value="ok" {{ 'selected' if filter_stock_status == 'ok' }}>In Stock</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <a href="{{ url_for('reports.inventory_report', view='summary') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card">
-    <div class="card-header">Complete Inventory</div>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-list-columns me-1"></i>Inventory ({{ product_summaries|length }} of {{ all_products|length }} items)</span>
+        <div class="d-none d-lg-flex gap-1">
+            <span class="badge bg-success-subtle text-success-emphasis"><i class="bi bi-box-arrow-in-down me-1"></i>In</span>
+            <span class="badge bg-danger-subtle text-danger-emphasis"><i class="bi bi-box-arrow-up me-1"></i>Out</span>
+            <span class="badge bg-warning-subtle text-warning-emphasis"><i class="bi bi-sliders me-1"></i>Adj</span>
+            <span class="badge bg-secondary-subtle text-secondary-emphasis"><i class="bi bi-exclamation-diamond me-1"></i>Dmg</span>
+        </div>
+    </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-        <table class="table mb-0">
-            <thead>
+        <table class="table table-hover mb-0 align-middle" id="inventoryTable">
+            <thead class="table-light">
                 <tr>
-                    <th>SKU</th><th>Product</th><th>Category</th>
-                    <th class="text-end">Qty on Hand</th><th class="text-end">Cost Price</th>
-                    <th class="text-end">Selling Price</th><th class="text-end">Value</th><th class="text-end">Margin</th>
+                    <th style="cursor:pointer" onclick="sortTable(0)">SKU <i class="bi bi-chevron-expand small"></i></th>
+                    <th style="cursor:pointer" onclick="sortTable(1)">Product <i class="bi bi-chevron-expand small"></i></th>
+                    <th class="text-end" style="cursor:pointer" onclick="sortTable(2)">On Hand <i class="bi bi-chevron-expand small"></i></th>
+                    <th class="text-center text-success d-table-cell-lg">In</th>
+                    <th class="text-center text-danger d-table-cell-lg">Out</th>
+                    <th class="text-center text-warning d-table-cell-lg">Adj</th>
+                    <th class="text-center text-secondary d-table-cell-lg">Dmg</th>
+                    <th class="text-end d-table-cell-md">Cost</th>
+                    <th class="text-end d-table-cell-md">Sell</th>
+                    <th class="text-end">Stock Value</th>
+                    <th class="text-end d-table-cell-lg">Margin</th>
+                    <th class="text-nowrap d-table-cell-lg">Last Move</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
-                {% for p in products %}
-                <tr>
-                    <td><code>{{ p.sku }}</code></td>
-                    <td class="fw-medium">{{ p.name }}</td>
-                    <td>{{ p.category or '—' }}</td>
-                    <td class="text-end">{{ p.quantity_on_hand }} {{ p.unit }}</td>
-                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(p.cost_price) }}</td>
-                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(p.selling_price) }}</td>
-                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(p.quantity_on_hand * p.cost_price) }}</td>
-                    <td class="text-end">
-                        {% if p.selling_price > 0 %}
-                        {{ "{:.1f}%".format((p.selling_price - p.cost_price) / p.selling_price * 100) }}
+                {% for ps in product_summaries %}
+                {% set p = ps.product %}
+                {% set qty = p.quantity_on_hand|float %}
+                <tr class="{{ 'table-danger' if qty < 0 else ('table-warning' if qty <= (p.reorder_level|float) and (p.reorder_level|float) > 0 else '') }}">
+                    <td><code class="small">{{ p.sku }}</code></td>
+                    <td class="fw-medium">
+                        {{ p.name }}
+                        {% if p.category_ref %}<div class="text-muted small">{{ p.category_ref.name }}</div>{% endif %}
+                    </td>
+                    <td class="text-end fw-bold {{ 'text-danger' if qty < 0 else ('text-warning' if qty <= (p.reorder_level|float) and (p.reorder_level|float) > 0 else '') }}">
+                        {{ "{:,.2f}".format(qty) }} <small class="text-muted">{{ p.unit }}</small>
+                        {% if qty < 0 %}<i class="bi bi-exclamation-triangle-fill text-danger ms-1" title="Negative stock!"></i>{% endif %}
+                    </td>
+                    <td class="text-center d-table-cell-lg"><span class="text-success fw-medium">{{ "{:,.0f}".format(ps.total_in) }}</span></td>
+                    <td class="text-center d-table-cell-lg"><span class="text-danger fw-medium">{{ "{:,.0f}".format(ps.total_out) }}</span></td>
+                    <td class="text-center d-table-cell-lg">{% if ps.adjustments %}<span class="badge bg-warning text-dark">{{ ps.adjustments }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                    <td class="text-center d-table-cell-lg">{% if ps.damage_count %}<span class="badge bg-secondary">{{ ps.damage_count }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                    <td class="text-end amount small d-table-cell-md">{{ currency_symbol }}{{ "{:,.2f}".format(p.cost_price) }}</td>
+                    <td class="text-end amount small d-table-cell-md">{{ currency_symbol }}{{ "{:,.2f}".format(p.selling_price) }}</td>
+                    <td class="text-end amount fw-medium">{{ currency_symbol }}{{ "{:,.2f}".format(ps.value) }}</td>
+                    <td class="text-end small d-table-cell-lg">
+                        {% if p.selling_price|float > 0 %}
+                        {% set margin = ((p.selling_price|float - p.cost_price|float) / p.selling_price|float * 100) %}
+                        <span class="{{ 'text-success' if margin > 0 else 'text-danger' }}">{{ "{:.1f}%".format(margin) }}</span>
                         {% else %}—{% endif %}
+                    </td>
+                    <td class="text-nowrap small text-muted d-table-cell-lg">{{ ps.last_movement.strftime('%b %d') if ps.last_movement else '—' }}</td>
+                    <td class="text-nowrap">
+                        <a href="{{ url_for('inventory.product_history', id=p.id) }}" class="btn btn-sm btn-outline-success py-0 px-1" title="Full history">
+                            <i class="bi bi-clock-history"></i>
+                        </a>
                     </td>
                 </tr>
                 {% endfor %}
+                {% if not product_summaries %}
+                <tr><td colspan="13" class="text-center text-muted py-4">No inventory products found.</td></tr>
+                {% endif %}
             </tbody>
             <tfoot>
                 <tr class="fw-bold table-light">
-                    <td colspan="6" class="text-end">Total Inventory Value</td>
-                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(total_value) }}</td>
+                    <td colspan="2" class="text-end">Totals</td>
+                    <td class="text-end">{{ "{:,.0f}".format(products|map(attribute='quantity_on_hand')|map('float')|sum) }}</td>
+                    <td class="text-center text-success d-table-cell-lg">{{ "{:,.0f}".format(product_summaries|map(attribute='total_in')|sum) }}</td>
+                    <td class="text-center text-danger d-table-cell-lg">{{ "{:,.0f}".format(product_summaries|map(attribute='total_out')|sum) }}</td>
+                    <td class="text-center d-table-cell-lg">{{ product_summaries|map(attribute='adjustments')|sum }}</td>
+                    <td class="text-center d-table-cell-lg">{{ product_summaries|map(attribute='damage_count')|sum }}</td>
+                    <td class="d-table-cell-md"></td>
+                    <td class="d-table-cell-md"></td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(product_summaries|map(attribute='value')|sum) }}</td>
+                    <td class="d-table-cell-lg"></td>
+                    <td class="d-table-cell-lg"></td>
                     <td></td>
                 </tr>
             </tfoot>
@@ -97,4 +248,204 @@
         </div>
     </div>
 </div>
+
+<!-- ─── STOCK COUNT VERIFICATION NOTE ──────────────────── -->
+<div class="card mt-3 d-none d-md-block">
+    <div class="card-body py-2">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-info-circle text-info me-2 mt-1"></i>
+            <div>
+                <h6 class="mb-1 small fw-bold">Stock Count Verification</h6>
+                <p class="small text-muted mb-1" style="font-size:.78rem;">
+                    <strong>On Hand</strong> = Opening + Stock In − Stock Out ± Adjustments.
+                    Mismatch? Use <a href="{{ url_for('inventory.stock_adjustment') }}">Stock Adjustment</a> → "<em>Count Correction</em>".
+                </p>
+                <p class="small text-muted mb-0" style="font-size:.78rem;">
+                    Click <i class="bi bi-clock-history text-success"></i> for full movement history.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- ══════════════════════════════════════════════════════════
+     STOCK MOVEMENTS VIEW
+     ══════════════════════════════════════════════════════════ -->
+
+<!-- Filters -->
+<div class="card mb-3 filter-bar">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <input type="hidden" name="view" value="movements">
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1">Product</label>
+                <select name="product_id" class="form-select form-select-sm">
+                    <option value="">All Products</option>
+                    {% for p in all_products %}
+                    <option value="{{ p.id }}" {{ 'selected' if filter_product_id == p.id }}>{{ p.sku }} — {{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">Type</label>
+                <select name="type" class="form-select form-select-sm">
+                    <option value="">All Types</option>
+                    <option value="in" {{ 'selected' if filter_type == 'in' }}>Stock In</option>
+                    <option value="out" {{ 'selected' if filter_type == 'out' }}>Stock Out</option>
+                    <option value="adjustment" {{ 'selected' if filter_type == 'adjustment' }}>Adjustment</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">From</label>
+                <input type="date" name="date_from" class="form-control form-control-sm" value="{{ filter_date_from }}">
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small mb-1">To</label>
+                <input type="date" name="date_to" class="form-control form-control-sm" value="{{ filter_date_to }}">
+            </div>
+            <div class="col-12 col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <a href="{{ url_for('reports.inventory_report', view='movements') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-arrow-left-right me-1"></i>Movement History ({{ movements|length }}{% if movements|length >= 500 %}+{% endif %} records)</span>
+        <div class="d-none d-lg-flex gap-1">
+            <span class="badge bg-success"><i class="bi bi-box-arrow-in-down me-1"></i>Stock In</span>
+            <span class="badge bg-danger"><i class="bi bi-box-arrow-up me-1"></i>Stock Out</span>
+            <span class="badge bg-warning text-dark"><i class="bi bi-pencil-square me-1"></i>Adjustment</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Product</th>
+                    <th>Type</th>
+                    <th class="d-table-cell-lg">Reason / Source</th>
+                    <th class="text-end">Qty</th>
+                    <th class="text-end d-table-cell-md">Unit Cost</th>
+                    <th class="text-end d-table-cell-md">Value</th>
+                    <th class="d-table-cell-lg">Reference</th>
+                    <th class="d-table-cell-lg">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in movements %}
+                <tr>
+                    <td class="text-nowrap small">
+                        {{ m.date.strftime('%b %d, %Y') }}
+                        <div class="text-muted" style="font-size:.7rem">{{ m.created_at.strftime('%H:%M') if m.created_at else '' }}</div>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('inventory.product_history', id=m.product.id) }}" class="fw-medium text-decoration-none">
+                            {{ m.product.name }}
+                        </a>
+                        <div class="text-muted small">{{ m.product.sku }}</div>
+                    </td>
+                    <td>
+                        {% if m.movement_type == 'in' %}
+                        <span class="badge bg-success"><i class="bi bi-box-arrow-in-down me-1"></i>In</span>
+                        {% elif m.movement_type == 'out' %}
+                        <span class="badge bg-danger"><i class="bi bi-box-arrow-up me-1"></i>Out</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark"><i class="bi bi-pencil-square me-1"></i>Adj</span>
+                        {% endif %}
+                    </td>
+                    <td class="small d-table-cell-lg">
+                        {% if m.notes %}
+                            {% if 'Broken' in m.notes or 'Damaged' in m.notes %}
+                            <span class="badge bg-danger-subtle text-danger-emphasis"><i class="bi bi-exclamation-diamond me-1"></i>Damaged</span>
+                            {% elif 'Expired' in m.notes %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis"><i class="bi bi-calendar-x me-1"></i>Expired</span>
+                            {% elif 'Theft' in m.notes or 'Lost' in m.notes %}
+                            <span class="badge bg-dark"><i class="bi bi-shield-exclamation me-1"></i>Loss/Theft</span>
+                            {% elif 'Count Correction' in m.notes %}
+                            <span class="badge bg-info-subtle text-info-emphasis"><i class="bi bi-clipboard-check me-1"></i>Count Fix</span>
+                            {% elif 'Returned' in m.notes or 'Return' in m.notes %}
+                            <span class="badge bg-primary-subtle text-primary-emphasis"><i class="bi bi-arrow-return-left me-1"></i>Return</span>
+                            {% elif 'Sale to' in m.notes %}
+                            <span class="badge bg-success-subtle text-success-emphasis"><i class="bi bi-receipt me-1"></i>Sale</span>
+                            {% elif 'Purchase from' in m.notes %}
+                            <span class="badge bg-primary-subtle text-primary-emphasis"><i class="bi bi-truck me-1"></i>Purchase</span>
+                            {% elif 'Opening' in (m.reference or '') or 'Initial' in (m.notes or '') %}
+                            <span class="badge bg-info-subtle text-info-emphasis"><i class="bi bi-flag me-1"></i>Opening</span>
+                            {% elif 'Restock' in m.notes %}
+                            <span class="badge bg-success-subtle text-success-emphasis"><i class="bi bi-arrow-repeat me-1"></i>Restock</span>
+                            {% elif 'Sample' in m.notes or 'Giveaway' in m.notes %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis"><i class="bi bi-gift me-1"></i>Sample</span>
+                            {% elif 'Production' in m.notes %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis"><i class="bi bi-gear me-1"></i>Production</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-medium text-nowrap">
+                        {% if m.movement_type == 'in' %}
+                        <span class="text-success">+{{ "{:,.2f}".format(m.quantity|float) }}</span>
+                        {% elif m.movement_type == 'out' %}
+                        <span class="text-danger">−{{ "{:,.2f}".format(m.quantity|float) }}</span>
+                        {% else %}
+                        <span class="text-warning">={{ "{:,.2f}".format(m.quantity|float) }}</span>
+                        {% endif %}
+                        <small class="text-muted">{{ m.product.unit }}</small>
+                    </td>
+                    <td class="text-end amount small d-table-cell-md">{{ currency_symbol }}{{ "{:,.2f}".format(m.unit_cost|float) }}</td>
+                    <td class="text-end amount small d-table-cell-md">{{ currency_symbol }}{{ "{:,.2f}".format((m.quantity|float) * (m.unit_cost|float)) }}</td>
+                    <td class="d-table-cell-lg">
+                        {% if m.reference %}
+                        <code class="small">{{ m.reference }}</code>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="small text-muted d-table-cell-lg" style="max-width:200px;" title="{{ m.notes }}">{{ (m.notes[:60] + '…') if m.notes and m.notes|length > 60 else (m.notes or '—') }}</td>
+                </tr>
+                {% endfor %}
+                {% if not movements %}
+                <tr><td colspan="9" class="text-center text-muted py-4">No stock movements found matching your filters.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+{% if movements %}
+<div class="text-muted small mt-2">
+    Showing {{ movements|length }} movement{{ 's' if movements|length != 1 }}{% if movements|length >= 500 %} (limited to 500 — use filters to narrow results){% endif %}.
+</div>
+{% endif %}
+
+{% endif %}
+
+{% block extra_js %}
+<script>
+/* Simple client-side column sort for the summary table */
+function sortTable(colIdx) {
+    const table = document.getElementById('inventoryTable');
+    if (!table) return;
+    const tbody = table.tBodies[0];
+    const rows = Array.from(tbody.rows);
+    const dir = table.dataset.sortDir === 'asc' ? 'desc' : 'asc';
+    table.dataset.sortDir = dir;
+    rows.sort((a, b) => {
+        let va = a.cells[colIdx].textContent.trim().replace(/[,$%]/g, '');
+        let vb = b.cells[colIdx].textContent.trim().replace(/[,$%]/g, '');
+        const na = parseFloat(va), nb = parseFloat(vb);
+        if (!isNaN(na) && !isNaN(nb)) return dir === 'asc' ? na - nb : nb - na;
+        return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    rows.forEach(r => tbody.appendChild(r));
+}
+</script>
+{% endblock %}
 {% endblock %}

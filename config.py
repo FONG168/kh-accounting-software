@@ -33,6 +33,19 @@ class Config:
         _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
     SQLALCHEMY_DATABASE_URI = _db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    if 'sqlite' in _db_url:
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            'connect_args': {'timeout': 30}
+        }
+    else:
+        # PostgreSQL: connection pooling for fast remote DB access
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            'pool_size': 10,
+            'max_overflow': 20,
+            'pool_timeout': 30,
+            'pool_recycle': 1800,
+            'pool_pre_ping': True,
+        }
 
     # ── Company Defaults ──────────────────────────────────────
     COMPANY_NAME = os.environ.get('COMPANY_NAME', 'My Company')

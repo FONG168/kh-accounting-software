@@ -136,6 +136,10 @@ def register():
         )
         user.set_password(password)
         db.session.add(user)
+        db.session.flush()
+
+        log_activity('register', 'User', user.id, user.full_name,
+                     f'New account registered: {email}' + (' (super-admin)' if is_first_user else ''))
         db.session.commit()
 
         if is_first_user:
@@ -292,6 +296,10 @@ def login():
 
 @auth_bp.route('/logout')
 def logout():
+    if current_user.is_authenticated:
+        log_activity('logout', 'User', current_user.id, current_user.full_name,
+                     f'{current_user.email} signed out')
+        db.session.commit()
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('auth.login'))

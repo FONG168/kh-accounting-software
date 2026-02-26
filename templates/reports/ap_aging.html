@@ -21,8 +21,8 @@
                 <tr>
                     <th>Vendor</th>
                     <th class="text-end">Current</th>
-                    <th class="text-end">31-60 Days</th>
-                    <th class="text-end">61-90 Days</th>
+                    <th class="text-end d-table-cell-md">31-60 Days</th>
+                    <th class="text-end d-table-cell-md">61-90 Days</th>
                     <th class="text-end">90+ Days</th>
                     <th class="text-end fw-bold">Total</th>
                 </tr>
@@ -32,8 +32,8 @@
                 <tr>
                     <td class="fw-medium">{{ item.vendor.name }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(item.current) if item.current else '' }}</td>
-                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(item['31-60']) if item['31-60'] else '' }}</td>
-                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(item['61-90']) if item['61-90'] else '' }}</td>
+                    <td class="text-end amount d-table-cell-md">{{ currency_symbol }}{{ "{:,.2f}".format(item['31-60']) if item['31-60'] else '' }}</td>
+                    <td class="text-end amount d-table-cell-md">{{ currency_symbol }}{{ "{:,.2f}".format(item['61-90']) if item['61-90'] else '' }}</td>
                     <td class="text-end amount text-danger">{{ currency_symbol }}{{ "{:,.2f}".format(item['90+']) if item['90+'] else '' }}</td>
                     <td class="text-end amount fw-bold">{{ currency_symbol }}{{ "{:,.2f}".format(item.total) }}</td>
                 </tr>
@@ -47,8 +47,8 @@
                 <tr class="fw-bold table-light">
                     <td>Total</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(vendor_aging|sum(attribute='current')) }}</td>
-                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(vendor_aging|map(attribute='31-60')|sum) }}</td>
-                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(vendor_aging|map(attribute='61-90')|sum) }}</td>
+                    <td class="text-end amount d-table-cell-md">{{ currency_symbol }}{{ "{:,.2f}".format(vendor_aging|map(attribute='31-60')|sum) }}</td>
+                    <td class="text-end amount d-table-cell-md">{{ currency_symbol }}{{ "{:,.2f}".format(vendor_aging|map(attribute='61-90')|sum) }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(vendor_aging|map(attribute='90+')|sum) }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(vendor_aging|sum(attribute='total')) }}</td>
                 </tr>

@@ -15,8 +15,8 @@
                     <th>Payment #</th>
                     <th>Date</th>
                     <th>Customer</th>
-                    <th>Invoice</th>
-                    <th>Method</th>
+                    <th class="d-table-cell-lg">Invoice</th>
+                    <th class="d-table-cell-lg">Method</th>
                     <th class="text-end">Amount</th>
                 </tr>
             </thead>
@@ -26,8 +26,8 @@
                     <td class="fw-medium">{{ p.payment_number }}</td>
                     <td>{{ p.date.strftime('%b %d, %Y') }}</td>
                     <td>{{ p.customer.name }}</td>
-                    <td>{{ p.invoice.invoice_number if p.invoice else '—' }}</td>
-                    <td>{{ p.payment_method }}</td>
+                    <td class="d-table-cell-lg">{{ p.invoice.invoice_number if p.invoice else '—' }}</td>
+                    <td class="d-table-cell-lg">{{ p.payment_method }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(p.amount) }}</td>
                 </tr>
                 {% endfor %}

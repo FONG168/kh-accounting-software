@@ -9,7 +9,7 @@
     </div>
 </div>
 
-<div class="card mb-3">
+<div class="card mb-3 filter-bar">
     <div class="card-body py-2">
         <form method="GET" class="row g-2 align-items-end">
             <div class="col-12 col-sm-3">
@@ -48,8 +48,8 @@
                 <tr>
                     <th>Date</th>
                     <th>Entry #</th>
-                    <th>Description</th>
-                    <th>Reference</th>
+                    <th class="d-table-cell-lg">Description</th>
+                    <th class="d-table-cell-lg">Reference</th>
                     <th class="text-end">Debit</th>
                     <th class="text-end">Credit</th>
                     <th class="text-end">Balance</th>
@@ -57,15 +57,19 @@
             </thead>
             <tbody>
                 <tr class="table-light">
-                    <td colspan="6"><strong>Opening Balance</strong></td>
+                    <td colspan="2"><strong>Opening Balance</strong></td>
+                    <td class="d-table-cell-lg"></td>
+                    <td class="d-table-cell-lg"></td>
+                    <td></td>
+                    <td></td>
                     <td class="text-end amount"><strong>{{ currency_symbol }}{{ "{:,.2f}".format(ledger_data.opening_balance) }}</strong></td>
                 </tr>
                 {% for entry in ledger_data.entries %}
                 <tr>
                     <td>{{ entry.date.strftime('%b %d, %Y') }}</td>
                     <td><a href="{{ url_for('journal.view', id=entry.entry_number.replace('JE-','') | int) }}">{{ entry.entry_number }}</a></td>
-                    <td>{{ entry.description }}</td>
-                    <td>{{ entry.reference }}</td>
+                    <td class="d-table-cell-lg">{{ entry.description }}</td>
+                    <td class="d-table-cell-lg">{{ entry.reference }}</td>
                     <td class="text-end amount">{{ currency_symbol ~ "{:,.2f}".format(entry.debit) if entry.debit else '' }}</td>
                     <td class="text-end amount">{{ currency_symbol ~ "{:,.2f}".format(entry.credit) if entry.credit else '' }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(entry.balance) }}</td>
@@ -74,7 +78,11 @@
             </tbody>
             <tfoot>
                 <tr class="grand-total">
-                    <td colspan="6"><strong>Closing Balance</strong></td>
+                    <td colspan="2"><strong>Closing Balance</strong></td>
+                    <td class="d-table-cell-lg"></td>
+                    <td class="d-table-cell-lg"></td>
+                    <td></td>
+                    <td></td>
                     <td class="text-end amount"><strong>{{ currency_symbol }}{{ "{:,.2f}".format(ledger_data.closing_balance) }}</strong></td>
                 </tr>
             </tfoot>

@@ -8,8 +8,46 @@ vendors_bp = Blueprint('vendors', __name__, url_prefix='/vendors')
 @vendors_bp.route('/')
 @login_required
 def index():
-    vendors = Vendor.query.filter_by(user_id=current_user.id).order_by(Vendor.name).all()
-    return render_template('vendors/index.html', vendors=vendors)
+    query = Vendor.query.filter_by(user_id=current_user.id)
+
+    # --- Filters ---
+    search_q = request.args.get('q', '').strip()
+    filter_city = request.args.get('city', '')
+    filter_balance = request.args.get('balance', '')     # 'has' | 'zero'
+    filter_status = request.args.get('status', '')       # 'active' | 'inactive'
+
+    if search_q:
+        like = f'%{search_q}%'
+        query = query.filter(
+            db.or_(
+                Vendor.name.ilike(like),
+                Vendor.email.ilike(like),
+                Vendor.phone.ilike(like),
+            )
+        )
+    if filter_city:
+        query = query.filter(Vendor.city == filter_city)
+    if filter_balance == 'has':
+        query = query.filter(Vendor.balance != 0)
+    elif filter_balance == 'zero':
+        query = query.filter(Vendor.balance == 0)
+    if filter_status == 'active':
+        query = query.filter(Vendor.is_active == True)
+    elif filter_status == 'inactive':
+        query = query.filter(Vendor.is_active == False)
+
+    vendors = query.order_by(Vendor.name).all()
+
+    # Distinct cities for the dropdown (one cheap query)
+    cities = db.session.query(Vendor.city)\
+        .filter(Vendor.user_id == current_user.id, Vendor.city != '', Vendor.city.isnot(None))\
+        .distinct().order_by(Vendor.city).all()
+    cities = [c[0] for c in cities]
+
+    return render_template('vendors/index.html',
+                           vendors=vendors, cities=cities,
+                           search_q=search_q, filter_city=filter_city,
+                           filter_balance=filter_balance, filter_status=filter_status)
 
 
 @vendors_bp.route('/create', methods=['GET', 'POST'])

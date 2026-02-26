@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}New Bill{% endblock %}
+{% block title %}{{ 'Edit ' + bill.bill_number if bill else 'New Bill' }}{% endblock %}
 {% block extra_css %}
 <style>
     .payment-choice { display: flex; gap: 1rem; margin-bottom: 1rem; }
@@ -18,10 +18,10 @@
 {% endblock %}
 {% block content %}
 <div class="page-header">
-    <h2><i class="bi bi-bag me-2"></i>New Bill / Purchase</h2>
+    <h2><i class="bi bi-bag me-2"></i>{{ 'Edit ' + bill.bill_number if bill else 'New Bill / Purchase' }}</h2>
 </div>
 
-<form method="POST" id="billForm">
+<form method="POST" id="billForm" action="{{ url_for('purchases.edit', id=bill.id) if bill else url_for('purchases.create') }}">
     <div class="card mb-3">
         <div class="card-body">
             <div class="row g-3">
@@ -30,21 +30,21 @@
                     <select name="vendor_id" class="form-select" required>
                         <option value="">Select Vendor</option>
                         {% for v in vendors %}
-                        <option value="{{ v.id }}">{{ v.name }}</option>
+                        <option value="{{ v.id }}" {{ 'selected' if bill and bill.vendor_id == v.id }}>{{ v.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Date *</label>
-                    <input type="date" name="date" class="form-control" value="{{ today.isoformat() }}" required>
+                    <input type="date" name="date" class="form-control" value="{{ bill.date.isoformat() if bill else today.isoformat() }}" required>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Due Date</label>
-                    <input type="date" name="due_date" class="form-control" value="{{ due_default }}" id="dueDate">
+                    <input type="date" name="due_date" class="form-control" value="{{ bill.due_date.isoformat() if bill and bill.due_date else due_default }}" id="dueDate">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Tax Rate %</label>
-                    <input type="number" name="tax_rate" id="tax_rate" class="form-control" step="0.01" min="0" value="0" onchange="updateInvoiceTotal()">
+                    <input type="number" name="tax_rate" id="tax_rate" class="form-control" step="0.01" min="0" value="{{ bill.tax_rate|default(0, true) if bill else 0 }}" onchange="updateInvoiceTotal()">
                 </div>
             </div>
         </div>
@@ -69,6 +69,25 @@
                     </tr>
                 </thead>
                 <tbody id="invoiceLines">
+                    {% if bill and bill.items %}
+                    {% for item in bill.items %}
+                    <tr>
+                        <td>
+                            <select name="items-{{ loop.index0 }}-product_id" class="form-select product-select" onchange="onProductSelect(this, {{ loop.index0 }})">
+                                <option value="">Select Product</option>
+                                {% for p in products %}
+                                <option value="{{ p.id }}" {{ 'selected' if item.product_id == p.id }}>{{ p.sku }} - {{ p.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td><input type="text" name="items-{{ loop.index0 }}-description" class="form-control" value="{{ item.description }}" required></td>
+                        <td><input type="number" name="items-{{ loop.index0 }}-quantity" class="form-control qty-input" step="0.01" min="0" value="{{ item.quantity }}" onchange="updateLineAmount({{ loop.index0 }})"></td>
+                        <td><input type="number" name="items-{{ loop.index0 }}-unit_price" class="form-control price-input" step="0.01" min="0" value="{{ item.unit_cost }}" onchange="updateLineAmount({{ loop.index0 }})"></td>
+                        <td><input type="number" name="items-{{ loop.index0 }}-amount" class="form-control amount-input" step="0.01" readonly value="{{ item.amount }}"></td>
+                        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeInvoiceLine(this)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
                     <tr>
                         <td>
                             <select name="items-0-product_id" class="form-select product-select" onchange="onProductSelect(this, 0)">
@@ -84,6 +103,7 @@
                         <td><input type="number" name="items-0-amount" class="form-control amount-input" step="0.01" readonly></td>
                         <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeInvoiceLine(this)"><i class="bi bi-trash"></i></button></td>
                     </tr>
+                    {% endif %}
                 </tbody>
             </table>
             </div>
@@ -94,21 +114,22 @@
         <div class="card-body">
             <div class="d-flex justify-content-between mb-2">
                 <span>Subtotal:</span>
-                <span class="fw-bold">$<span id="subtotal">0.00</span></span>
+                <span class="fw-bold">$<span id="subtotal">{{ "{:.2f}".format(bill.subtotal|float) if bill else '0.00' }}</span></span>
             </div>
             <div class="d-flex justify-content-between mb-2">
                 <span>Tax:</span>
-                <span>$<span id="taxAmount">0.00</span></span>
+                <span>$<span id="taxAmount">{{ "{:.2f}".format(bill.tax_amount|float) if bill else '0.00' }}</span></span>
             </div>
             <hr>
             <div class="d-flex justify-content-between">
                 <span class="fw-bold fs-5">Total:</span>
-                <span class="fw-bold fs-5">$<span id="grandTotal">0.00</span></span>
+                <span class="fw-bold fs-5">$<span id="grandTotal">{{ "{:.2f}".format(bill.total|float) if bill else '0.00' }}</span></span>
             </div>
         </div>
     </div>
 
-    <!-- Payment Choice -->
+    {% if not bill %}
+    <!-- Payment Choice (only for new bills) -->
     <div class="card mb-3">
         <div class="card-header fw-semibold"><i class="bi bi-wallet2 me-1"></i>Payment Option</div>
         <div class="card-body">
@@ -150,20 +171,28 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <div class="mb-3">
         <label class="form-label">Notes</label>
-        <textarea name="notes" class="form-control" rows="2"></textarea>
+        <textarea name="notes" class="form-control" rows="2">{{ bill.notes if bill else '' }}</textarea>
     </div>
 
-    <input type="hidden" name="item_count" id="itemCount" value="1">
+    <input type="hidden" name="item_count" id="itemCount" value="{{ bill.items|length if bill else 1 }}">
     <input type="hidden" name="discount_amount" id="discount_amount" value="0">
 
     <div class="d-flex gap-2">
+        {% if bill %}
+        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+            <i class="bi bi-check-lg me-1"></i><span id="submitLabel">Update Bill</span>
+        </button>
+        <a href="{{ url_for('purchases.view', id=bill.id) }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+        {% else %}
         <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
             <i class="bi bi-check-lg me-1"></i><span id="submitLabel">Save Bill (Owe)</span>
         </button>
         <a href="{{ url_for('purchases.index') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+        {% endif %}
     </div>
 </form>
 
@@ -172,7 +201,7 @@
     window.productOptions = `{% for p in products %}<option value="{{ p.id }}">{{ p.sku }} - {{ p.name }}</option>{% endfor %}`;
     window.productData = {
         {% for p in products %}
-        '{{ p.id }}': { name: '{{ p.name }}', price: {{ p.cost_price }}, cost: {{ p.cost_price }} },
+        '{{ p.id }}': { name: '{{ p.name }}', price: {{ p.cost_price|default(0, true) }}, cost: {{ p.cost_price|default(0, true) }} },
         {% endfor %}
     };
 

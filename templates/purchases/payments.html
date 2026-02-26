@@ -11,7 +11,7 @@
         <div class="table-responsive">
         <table class="table table-hover mb-0">
             <thead>
-                <tr><th>Payment #</th><th>Date</th><th>Vendor</th><th>Bill</th><th>Method</th><th class="text-end">Amount</th></tr>
+                <tr><th>Payment #</th><th>Date</th><th>Vendor</th><th class="d-table-cell-lg">Bill</th><th class="d-table-cell-lg">Method</th><th class="text-end">Amount</th></tr>
             </thead>
             <tbody>
                 {% for p in payments %}
@@ -19,8 +19,8 @@
                     <td class="fw-medium">{{ p.payment_number }}</td>
                     <td>{{ p.date.strftime('%b %d, %Y') }}</td>
                     <td>{{ p.vendor.name }}</td>
-                    <td>{{ p.bill.bill_number if p.bill else '—' }}</td>
-                    <td>{{ p.payment_method }}</td>
+                    <td class="d-table-cell-lg">{{ p.bill.bill_number if p.bill else '—' }}</td>
+                    <td class="d-table-cell-lg">{{ p.payment_method }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(p.amount) }}</td>
                 </tr>
                 {% endfor %}

@@ -3,7 +3,7 @@ KH Accounting Software Enterprise
 Main application entry point
 """
 import os
-from flask import Flask, redirect, url_for, request
+from flask import Flask, redirect, url_for, request, session, g
 from flask_login import LoginManager, current_user
 from flask_wtf.csrf import CSRFProtect
 from config import Config
@@ -80,8 +80,27 @@ def create_app():
     # Context processor – inject company settings & user to all templates
     @app.context_processor
     def inject_globals():
+        # Auth & static pages use their own base template – skip all DB work
+        ep = request.endpoint or ''
+        if ep.startswith('auth') or ep == 'static':
+            return dict(
+                company_name=app.config.get('COMPANY_NAME', 'My Company'),
+                currency_symbol=app.config.get('CURRENCY_SYMBOL', '$'),
+                cs=app.config.get('CURRENCY_SYMBOL', '$'),
+                company_settings=None,
+                business_type='product',
+                is_service_business=False,
+                firebase_cloud_sync=firebase_enabled(),
+                fiscal_year_start=app.config.get('FISCAL_YEAR_START_MONTH', 1),
+                pending_count=lambda: 0,
+                unread_chat_count=lambda: 0,
+                require_approval=False,
+            )
+
         if current_user.is_authenticated:
-            settings = CompanySettings.query.filter_by(user_id=current_user.id).first()
+            if not hasattr(g, '_company_settings'):
+                g._company_settings = CompanySettings.query.filter_by(user_id=current_user.id).first()
+            settings = g._company_settings
         else:
             settings = None
         cs = settings.currency_symbol if settings else app.config.get('CURRENCY_SYMBOL', '$')
@@ -98,6 +117,10 @@ def create_app():
                 return ChatMessage.query.filter_by(receiver_id=current_user.id, is_read=False).count()
             return 0
 
+        # Cache require_approval in g to avoid repeat queries
+        if not hasattr(g, '_require_approval'):
+            g._require_approval = SystemSettings.require_approval()
+
         return dict(
             company_name=settings.company_name if settings else app.config.get('COMPANY_NAME', 'My Company'),
             currency_symbol=cs,
@@ -109,7 +132,7 @@ def create_app():
             fiscal_year_start=app.config.get('FISCAL_YEAR_START_MONTH', 1),
             pending_count=_pending_count,
             unread_chat_count=_unread_chat_count,
-            require_approval=SystemSettings.require_approval(),
+            require_approval=g._require_approval,
         )
 
     # ─── GLOBAL GUARD ──────────────────────────────────────────
@@ -133,148 +156,195 @@ def create_app():
 
         # Logged in but setup not complete → force industry selection
         if request.endpoint and not request.endpoint.startswith('setup'):
-            settings = CompanySettings.query.filter_by(user_id=current_user.id).first()
+            if not hasattr(g, '_company_settings'):
+                g._company_settings = CompanySettings.query.filter_by(user_id=current_user.id).first()
+            settings = g._company_settings
             if not settings or not settings.is_setup_complete:
                 return redirect(url_for('setup.choose_industry'))
 
-            # Safety: if user somehow has no accounts, seed them now
-            if Account.query.filter_by(user_id=current_user.id).first() is None:
-                for acct in DEFAULT_ACCOUNTS + IFRS_ACCOUNTS:
-                    db.session.add(Account(
-                        code=acct['code'], name=acct['name'],
-                        account_type=acct['account_type'],
-                        sub_type=acct.get('sub_type', ''),
-                        normal_balance=acct.get('normal_balance', 'debit'),
-                        is_system=True, user_id=current_user.id,
-                    ))
-                db.session.commit()
+            # Safety: seed default accounts only once (use session flag to avoid per-request query)
+            if not session.get('_accounts_checked'):
+                if Account.query.filter_by(user_id=current_user.id).first() is None:
+                    for acct in DEFAULT_ACCOUNTS + IFRS_ACCOUNTS:
+                        db.session.add(Account(
+                            code=acct['code'], name=acct['name'],
+                            account_type=acct['account_type'],
+                            sub_type=acct.get('sub_type', ''),
+                            normal_balance=acct.get('normal_balance', 'debit'),
+                            is_system=True, user_id=current_user.id,
+                        ))
+                    db.session.commit()
+                session['_accounts_checked'] = True
 
     # Create database tables & seed defaults on first run
     with app.app_context():
         db.create_all()
 
-        # ── lightweight migrations for new columns ──
         from sqlalchemy import inspect as sa_inspect, text
         insp = sa_inspect(db.engine)
 
-        # CompanySettings migrations
-        cs_cols = [c['name'] for c in insp.get_columns('company_settings')]
-        if 'logo' not in cs_cols:
-            db.session.execute(text("ALTER TABLE company_settings ADD COLUMN logo VARCHAR(300) DEFAULT ''"))
-            db.session.commit()
-        if 'business_type' not in cs_cols:
-            db.session.execute(text("ALTER TABLE company_settings ADD COLUMN business_type VARCHAR(20) DEFAULT 'product'"))
-            db.session.commit()
-        # Backfill business_type from industry for existing records
-        try:
-            _service_industries = "('services','education','healthcare','realestate')"
-            db.session.execute(text(f"UPDATE company_settings SET business_type = 'service' WHERE industry IN {_service_industries} AND (business_type IS NULL OR business_type = 'product')"))
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-
-        # Category migrations (category_type column)
-        cat_cols = [c['name'] for c in insp.get_columns('categories')]
-        if 'category_type' not in cat_cols:
-            db.session.execute(text("ALTER TABLE categories ADD COLUMN category_type VARCHAR(20) DEFAULT 'product'"))
+        # ── Migration version gate — run heavy migrations only once ──
+        _existing_tables = insp.get_table_names()
+        if '_migration_version' not in _existing_tables:
+            db.session.execute(text("CREATE TABLE _migration_version (version INTEGER PRIMARY KEY)"))
+            db.session.execute(text("INSERT INTO _migration_version VALUES (0)"))
             db.session.commit()
 
-        # Product migrations (advanced classification columns)
-        prod_cols = [c['name'] for c in insp.get_columns('products')]
-        for col_name, col_def in [
-            ('item_type', "VARCHAR(30) DEFAULT 'product'"),
-            ('sub_category', "VARCHAR(100) DEFAULT ''"),
-            ('revenue_type', "VARCHAR(30) DEFAULT ''"),
-            ('cost_behavior', "VARCHAR(30) DEFAULT ''"),
-            ('tax_type', "VARCHAR(20) DEFAULT 'taxable'"),
-        ]:
-            if col_name not in prod_cols:
-                db.session.execute(text(f"ALTER TABLE products ADD COLUMN {col_name} {col_def}"))
+        _current_ver = db.session.execute(text("SELECT version FROM _migration_version")).scalar() or 0
+
+        if _current_ver < 1:
+            # ── lightweight column migrations (run once) ──
+            cs_cols = [c['name'] for c in insp.get_columns('company_settings')]
+            if 'logo' not in cs_cols:
+                db.session.execute(text("ALTER TABLE company_settings ADD COLUMN logo VARCHAR(300) DEFAULT ''"))
                 db.session.commit()
-        # Backfill item_type from is_service flag
-        try:
-            db.session.execute(text("UPDATE products SET item_type = 'service' WHERE is_service = 1 AND (item_type IS NULL OR item_type = 'product')"))
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-
-        # User migrations (role column + admin fields)
-        user_cols = [c['name'] for c in insp.get_columns('users')]
-        if 'role' not in user_cols:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'admin'"))
-            db.session.commit()
-        if 'is_superadmin' not in user_cols:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN is_superadmin BOOLEAN DEFAULT 0"))
-            db.session.commit()
-        if 'approval_status' not in user_cols:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN approval_status VARCHAR(20) DEFAULT 'approved'"))
-            db.session.commit()
-        if 'account_status' not in user_cols:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN account_status VARCHAR(20) DEFAULT 'active'"))
-            db.session.commit()
-        if 'rejection_reason' not in user_cols:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN rejection_reason TEXT DEFAULT ''"))
-            db.session.commit()
-        if 'suspended_reason' not in user_cols:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN suspended_reason TEXT DEFAULT ''"))
-            db.session.commit()
-        if 'username' not in user_cols:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR(100) DEFAULT NULL"))
-            db.session.commit()
-        if 'plain_password' not in user_cols:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN plain_password VARCHAR(200) DEFAULT ''"))
-            db.session.commit()
-        if 'suspended_until' not in user_cols:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN suspended_until DATETIME DEFAULT NULL"))
-            db.session.commit()
-
-        # ── user_id column migrations for multi-tenant isolation ──
-        _multi_tenant_tables = [
-            'company_settings', 'categories', 'accounts', 'journal_entries',
-            'journal_lines', 'customers', 'vendors', 'products', 'stock_movements',
-            'invoices', 'payments_received', 'bills', 'payments_made',
-            'expenses', 'fiscal_periods', 'credit_notes', 'debit_notes',
-            'budgets', 'audit_log',
-        ]
-        for _tbl in _multi_tenant_tables:
+            if 'business_type' not in cs_cols:
+                db.session.execute(text("ALTER TABLE company_settings ADD COLUMN business_type VARCHAR(20) DEFAULT 'product'"))
+                db.session.commit()
             try:
-                _cols = [c['name'] for c in insp.get_columns(_tbl)]
-                if 'user_id' not in _cols:
-                    db.session.execute(text(f"ALTER TABLE {_tbl} ADD COLUMN user_id INTEGER REFERENCES users(id)"))
+                _service_industries = "('services','education','healthcare','realestate')"
+                db.session.execute(text(f"UPDATE company_settings SET business_type = 'service' WHERE industry IN {_service_industries} AND (business_type IS NULL OR business_type = 'product')"))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+            cat_cols = [c['name'] for c in insp.get_columns('categories')]
+            if 'category_type' not in cat_cols:
+                db.session.execute(text("ALTER TABLE categories ADD COLUMN category_type VARCHAR(20) DEFAULT 'product'"))
+                db.session.commit()
+
+            prod_cols = [c['name'] for c in insp.get_columns('products')]
+            for col_name, col_def in [
+                ('item_type', "VARCHAR(30) DEFAULT 'product'"),
+                ('sub_category', "VARCHAR(100) DEFAULT ''"),
+                ('revenue_type', "VARCHAR(30) DEFAULT ''"),
+                ('cost_behavior', "VARCHAR(30) DEFAULT ''"),
+                ('tax_type', "VARCHAR(20) DEFAULT 'taxable'"),
+            ]:
+                if col_name not in prod_cols:
+                    db.session.execute(text(f"ALTER TABLE products ADD COLUMN {col_name} {col_def}"))
+                    db.session.commit()
+            try:
+                db.session.execute(text("UPDATE products SET item_type = 'service' WHERE is_service = 1 AND (item_type IS NULL OR item_type = 'product')"))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+            user_cols = [c['name'] for c in insp.get_columns('users')]
+            for _col, _def in [
+                ('role', "VARCHAR(20) DEFAULT 'admin'"),
+                ('is_superadmin', "BOOLEAN DEFAULT 0"),
+                ('approval_status', "VARCHAR(20) DEFAULT 'approved'"),
+                ('account_status', "VARCHAR(20) DEFAULT 'active'"),
+                ('rejection_reason', "TEXT DEFAULT ''"),
+                ('suspended_reason', "TEXT DEFAULT ''"),
+                ('username', "VARCHAR(100) DEFAULT NULL"),
+                ('plain_password', "VARCHAR(200) DEFAULT ''"),
+                ('suspended_until', "DATETIME DEFAULT NULL"),
+            ]:
+                if _col not in user_cols:
+                    db.session.execute(text(f"ALTER TABLE users ADD COLUMN {_col} {_def}"))
+                    db.session.commit()
+
+            try:
+                al_cols = [c['name'] for c in insp.get_columns('audit_logs')]
+                if 'user_role' not in al_cols:
+                    db.session.execute(text("ALTER TABLE audit_logs ADD COLUMN user_role VARCHAR(20) DEFAULT ''"))
+                    db.session.commit()
+                if 'user_agent' not in al_cols:
+                    db.session.execute(text("ALTER TABLE audit_logs ADD COLUMN user_agent VARCHAR(500) DEFAULT ''"))
                     db.session.commit()
             except Exception:
                 db.session.rollback()
 
-        # Backfill: assign all records with NULL user_id to the superadmin
-        _sa = User.query.filter_by(is_superadmin=True).first()
-        if _sa:
+            # ── user_id column for multi-tenant isolation ──
+            _multi_tenant_tables = [
+                'company_settings', 'categories', 'accounts', 'journal_entries',
+                'journal_lines', 'customers', 'vendors', 'products', 'stock_movements',
+                'invoices', 'payments_received', 'bills', 'payments_made',
+                'expenses', 'fiscal_periods', 'credit_notes', 'debit_notes',
+                'budgets', 'audit_logs',
+            ]
             for _tbl in _multi_tenant_tables:
                 try:
-                    db.session.execute(text(f"UPDATE {_tbl} SET user_id = :uid WHERE user_id IS NULL"), {'uid': _sa.id})
-                    db.session.commit()
+                    _cols = [c['name'] for c in insp.get_columns(_tbl)]
+                    if 'user_id' not in _cols:
+                        db.session.execute(text(f"ALTER TABLE {_tbl} ADD COLUMN user_id INTEGER REFERENCES users(id)"))
+                        db.session.commit()
                 except Exception:
                     db.session.rollback()
 
-        # Drop old UNIQUE indexes that are no longer valid with multi-tenant
-        _unique_indexes_to_drop = [
-            ('accounts', 'code'), ('products', 'sku'),
-            ('invoices', 'invoice_number'), ('bills', 'bill_number'),
-            ('credit_notes', 'cn_number'), ('debit_notes', 'dn_number'),
-        ]
-        for _tbl, _col in _unique_indexes_to_drop:
-            try:
-                # Find and drop unique index on the column
-                rows = db.session.execute(text(f"PRAGMA index_list('{_tbl}')")).fetchall()
-                for row in rows:
-                    idx_name = row[1]
-                    is_unique = row[2]
-                    if is_unique:
-                        idx_info = db.session.execute(text(f"PRAGMA index_info('{idx_name}')")).fetchall()
-                        if len(idx_info) == 1 and idx_info[0][2] == _col:
-                            db.session.execute(text(f"DROP INDEX IF EXISTS \"{idx_name}\""))
+            # Drop old UNIQUE indexes (SQLite-only — PostgreSQL uses different syntax)
+            _is_sqlite = 'sqlite' in str(db.engine.url)
+            if _is_sqlite:
+                for _tbl, _col in [('accounts', 'code'), ('products', 'sku'),
+                                    ('invoices', 'invoice_number'), ('bills', 'bill_number'),
+                                    ('credit_notes', 'cn_number'), ('debit_notes', 'dn_number')]:
+                    try:
+                        rows = db.session.execute(text(f"PRAGMA index_list('{_tbl}')")).fetchall()
+                        for row in rows:
+                            idx_name = row[1]
+                            if row[2]:  # is_unique
+                                idx_info = db.session.execute(text(f"PRAGMA index_info('{idx_name}')")).fetchall()
+                                if len(idx_info) == 1 and idx_info[0][2] == _col:
+                                    db.session.execute(text(f"DROP INDEX IF EXISTS \"{idx_name}\""))
+                                    db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+            else:
+                # PostgreSQL: drop unique constraints on single columns
+                for _tbl, _col in [('accounts', 'code'), ('products', 'sku'),
+                                    ('invoices', 'invoice_number'), ('bills', 'bill_number'),
+                                    ('credit_notes', 'cn_number'), ('debit_notes', 'dn_number')]:
+                    try:
+                        idx_rows = db.session.execute(text(
+                            "SELECT indexname FROM pg_indexes WHERE tablename = :tbl AND indexdef LIKE :pat"
+                        ), {'tbl': _tbl, 'pat': f'%UNIQUE%{_col}%'}).fetchall()
+                        for (idx_name,) in idx_rows:
+                            db.session.execute(text(f'DROP INDEX IF EXISTS "{idx_name}"'))
                             db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+
+            # Bump version
+            db.session.execute(text("UPDATE _migration_version SET version = 1"))
+            db.session.commit()
+
+        # ── Backfill NULL user_id rows (fast — runs only when needed) ──
+        _sa = User.query.filter_by(is_superadmin=True).first()
+        if _sa:
+            _multi_tenant_tables = [
+                'company_settings', 'categories', 'accounts', 'journal_entries',
+                'journal_lines', 'customers', 'vendors', 'products', 'stock_movements',
+                'invoices', 'payments_received', 'bills', 'payments_made',
+                'expenses', 'fiscal_periods', 'credit_notes', 'debit_notes',
+                'budgets', 'audit_logs',
+            ]
+            for _tbl in _multi_tenant_tables:
+                try:
+                    _null_count = db.session.execute(
+                        text(f"SELECT COUNT(*) FROM {_tbl} WHERE user_id IS NULL")
+                    ).scalar()
+                    if _null_count and _null_count > 0:
+                        db.session.execute(text(f"UPDATE {_tbl} SET user_id = :uid WHERE user_id IS NULL"), {'uid': _sa.id})
+                        db.session.commit()
+                except Exception:
+                    db.session.rollback()
+
+        # ── One-time cleanup: remove duplicate audit log entries ──
+        if _current_ver < 2:
+            try:
+                db.session.execute(text("""
+                    DELETE FROM audit_logs WHERE id NOT IN (
+                        SELECT MIN(id) FROM audit_logs
+                        GROUP BY user_id, action, entity_type, entity_id, details
+                    )
+                """))
+                db.session.commit()
             except Exception:
                 db.session.rollback()
+            db.session.execute(text("UPDATE _migration_version SET version = 2"))
+            db.session.commit()
 
         # ── Ensure the ONE super admin exists ────────────────────────
         SUPERADMIN_USERNAME = 'Fong168'
@@ -473,4 +543,4 @@ app = create_app()
 
 if __name__ == '__main__':
     debug = os.environ.get('FLASK_ENV', 'development') != 'production'
-    app.run(debug=debug, port=5000)
+    app.run(debug=debug, port=5000, use_reloader=False)

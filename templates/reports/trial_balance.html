@@ -9,7 +9,7 @@
     </div>
 </div>
 
-<div class="card mb-3">
+<div class="card mb-3 filter-bar">
     <div class="card-body py-2">
         <form method="GET" class="row g-2 align-items-end">
             <div class="col-6 col-sm-auto">
@@ -35,9 +35,9 @@
         <table class="table report-table mb-0">
             <thead>
                 <tr>
-                    <th>Code</th>
+                    <th class="d-table-cell-lg">Code</th>
                     <th>Account Name</th>
-                    <th>Type</th>
+                    <th class="d-table-cell-md">Type</th>
                     <th class="text-end">Debit</th>
                     <th class="text-end">Credit</th>
                 </tr>
@@ -45,9 +45,9 @@
             <tbody>
                 {% for item in data %}
                 <tr>
-                    <td><code>{{ item.account.code }}</code></td>
+                    <td class="d-table-cell-lg"><code>{{ item.account.code }}</code></td>
                     <td>{{ item.account.name }}</td>
-                    <td class="text-muted">{{ item.account.account_type }}</td>
+                    <td class="text-muted d-table-cell-md">{{ item.account.account_type }}</td>
                     <td class="text-end amount">{{ currency_symbol ~ "{:,.2f}".format(item.debit) if item.debit else '' }}</td>
                     <td class="text-end amount">{{ currency_symbol ~ "{:,.2f}".format(item.credit) if item.credit else '' }}</td>
                 </tr>
@@ -55,12 +55,16 @@
             </tbody>
             <tfoot>
                 <tr class="grand-total">
-                    <td colspan="3">Total</td>
+                    <td class="d-table-cell-lg"></td>
+                    <td>Total</td>
+                    <td class="d-table-cell-md"></td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(total_debit) }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(total_credit) }}</td>
                 </tr>
                 <tr>
-                    <td colspan="3" class="text-end fw-bold">Difference</td>
+                    <td class="d-table-cell-lg"></td>
+                    <td class="text-end fw-bold">Difference</td>
+                    <td class="d-table-cell-md"></td>
                     <td colspan="2" class="text-center {{ 'text-success' if (total_debit - total_credit)|abs < 0.01 else 'text-danger' }} fw-bold">
                         {{ currency_symbol }}{{ "{:,.2f}".format((total_debit - total_credit)|abs) }}
                         {% if (total_debit - total_credit)|abs < 0.01 %}<i class="bi bi-check-circle ms-1"></i>{% endif %}

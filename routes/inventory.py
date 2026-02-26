@@ -83,7 +83,6 @@ def create():
             db.session.add(sm)
 
         try:
-            db.session.commit()
             log_activity('create', 'Product', product.id, f'{product.sku} {product.name}',
                          f'Created product {product.sku} - {product.name}')
             db.session.commit()

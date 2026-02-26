@@ -29,21 +29,21 @@
 
     overlay?.addEventListener('click', closeSidebar);
 
-    // Close sidebar when clicking a link on mobile
+    // Close sidebar when clicking a link on mobile/tablet
     sidebar?.querySelectorAll('.sidebar-link').forEach(function(link) {
         link.addEventListener('click', function() {
-            if (window.innerWidth <= 768) closeSidebar();
+            if (window.innerWidth <= 992) closeSidebar();
         });
     });
 
     // Close on resize to desktop
     window.addEventListener('resize', function() {
-        if (window.innerWidth > 768) closeSidebar();
+        if (window.innerWidth > 992) closeSidebar();
     });
 
     // Close on outside click (fallback)
     document.addEventListener('click', function (e) {
-        if (window.innerWidth <= 768 && sidebar?.classList.contains('show') &&
+        if (window.innerWidth <= 992 && sidebar?.classList.contains('show') &&
             !sidebar.contains(e.target) && !toggle?.contains(e.target) && e.target !== overlay) {
             closeSidebar();
         }

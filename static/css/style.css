@@ -1222,29 +1222,12 @@ body, .sidebar, .main-content, .top-navbar, .card, .table,
     opacity: 1;
 }
 
-/* ── TABLET (≤ 992px) ──────────────────────────────────── */
+/* ── Filter bar responsive helpers ─────────────────────── */
+.filter-bar .form-label { white-space: nowrap; }
+
+/* ── TABLET  (≤ 992px) — sidebar collapses, content goes full-width ── */
 @media (max-width: 991.98px) {
-    :root {
-        --sidebar-width: 240px;
-    }
-    .page-content { padding: 20px; }
-    .top-navbar { padding: 0 16px; }
-
-    /* Dash layout adjustments */
-    .dash-header { flex-wrap: wrap; gap: 10px; }
-    .dash-header .d-flex { flex-wrap: wrap; }
-
-    /* Chart containers shrink */
-    .chart-wrap-md { height: 220px; }
-    .chart-wrap-sm { height: 170px; }
-
-    /* KPI modal sizing */
-    .kpi-modal { width: 90vw; }
-    .kpi-modal-wide { width: 92vw; }
-}
-
-/* ── SMALL TABLET / LANDSCAPE PHONE (≤ 768px) ─────────── */
-@media (max-width: 768px) {
+    /* ── Sidebar: collapse off-screen on tablet ── */
     .sidebar {
         transform: translateX(-100%);
     }
@@ -1255,19 +1238,18 @@ body, .sidebar, .main-content, .top-navbar, .card, .table,
         margin-left: 0;
     }
 
-    .cmd-palette { width: 95vw; }
+    .page-content { padding: 18px; }
+    .top-navbar { padding: 0 14px; }
+    .cmd-palette { width: 92vw; }
 
-    .page-content { padding: 16px; }
-    .top-navbar { padding: 0 12px; }
-
-    /* Page headers — stack and wrap */
+    /* ── Page headers — wrap and stack ── */
     .page-header {
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 8px;
     }
     .page-header h2 {
-        font-size: 1.15rem;
-        width: 100%;
+        font-size: 1.2rem;
+        flex: 1 1 100%;
     }
     .page-header .btn,
     .page-header > a,
@@ -1275,7 +1257,9 @@ body, .sidebar, .main-content, .top-navbar, .card, .table,
         flex-shrink: 0;
     }
 
-    /* Dash header */
+    /* ── Dash layout ── */
+    .dash-header { flex-wrap: wrap; gap: 10px; }
+    .dash-header .d-flex { flex-wrap: wrap; }
     .dash-header {
         flex-direction: column;
         align-items: flex-start;
@@ -1283,180 +1267,97 @@ body, .sidebar, .main-content, .top-navbar, .card, .table,
     }
     .dash-title { font-size: 1.15rem; }
 
-    /* KPI cards */
+    /* ── KPI cards ── */
     .kpi-value { font-size: 1.1rem; }
     .kpi-icon { width: 36px; height: 36px; font-size: 1rem; }
 
-    /* Card body padding reduce */
+    /* ── Cards — tighter ── */
     .card-body { padding: 14px; }
     .card-header { padding: 12px 14px; }
     .dash-card { padding: 14px; }
 
-    /* Forms */
+    /* ── Forms — smaller ── */
     .form-control, .form-select {
         font-size: 0.82rem;
-        padding: 8px 12px;
+        padding: 7px 10px;
     }
-    .btn { font-size: 0.8rem; padding: 8px 14px; }
+    .btn { font-size: 0.82rem; padding: 7px 12px; }
     .btn-lg { font-size: 0.88rem !important; padding: 10px 18px !important; }
 
-    /* Tables */
-    .table { font-size: 0.78rem; }
-    .table thead th { padding: 8px 10px; font-size: 0.65rem; }
+    /* ── Tables — compact ── */
+    .table { font-size: 0.8rem; }
+    .table thead th { padding: 8px 10px; font-size: 0.68rem; }
     .table tbody td { padding: 8px 10px; }
+    .table tfoot td { padding: 8px 10px; font-size: 0.8rem; }
 
-    /* Report tables */
+    /* ── Filter bars — compact ── */
+    .filter-bar .card-body { padding: 8px 12px; }
+    .filter-bar .row { --bs-gutter-x: 0.4rem; --bs-gutter-y: 0.35rem; }
+    .filter-bar .form-label { font-size: 0.68rem; margin-bottom: 1px; }
+    .filter-bar .input-group-text { padding: 4px 8px; font-size: 0.75rem; }
+    .filter-bar .form-control,
+    .filter-bar .form-select { font-size: 0.78rem; padding: 5px 8px; }
+    .filter-bar .btn { font-size: 0.78rem; padding: 5px 12px; min-height: 32px; }
+
+    /* ── Report tables ── */
     .report-table .section-header td { font-size: 0.82rem; padding: 8px 12px; }
     .report-table .section-total td { padding: 8px 12px; }
     .report-table .grand-total td { font-size: 0.88rem; padding: 10px 12px; }
     .report-table .indent-1 td:first-child { padding-left: 20px; }
     .report-table .indent-2 td:first-child { padding-left: 32px; }
 
-    /* Stamps */
-    .stamp { font-size: 1rem; padding: 4px 14px; letter-spacing: 1px; }
+    /* ── Stamps ── */
+    .stamp { font-size: 0.85rem; padding: 3px 10px; letter-spacing: 1px; }
 
-    /* Quick actions bar */
+    /* ── Quick actions ── */
     .quick-bar { padding: 10px 12px; }
-    .quick-btn { padding: 4px 10px; font-size: 0.7rem; }
+    .quick-btn { padding: 4px 10px; font-size: 0.72rem; }
 
-    /* Toast notifications */
+    /* ── Toasts ── */
     .toast-container { right: 12px; top: 68px; }
-    .toast-msg { max-width: 280px; font-size: 0.8rem; padding: 10px 14px; }
+    .toast-msg { max-width: 300px; font-size: 0.82rem; padding: 10px 14px; }
 
-    /* Chart containers */
+    /* ── Charts ── */
     .chart-wrap-md { height: 200px; }
     .chart-wrap-sm { height: 160px; }
 
-    /* Modal adjustments */
-    .kpi-modal { width: 95vw; max-height: 85vh; }
-    .kpi-modal-wide { width: 95vw; }
+    /* ── Modals ── */
+    .kpi-modal { width: 92vw; max-height: 85vh; }
+    .kpi-modal-wide { width: 94vw; }
     .kpi-modal-stat { padding: 10px 8px; }
     .kpi-modal-stat-value { font-size: 0.88rem; }
-    .kpi-modal-stat-label { font-size: 0.6rem; }
+    .kpi-modal-stat-label { font-size: 0.62rem; }
     .kpi-modal-backdrop { padding-top: 4vh; }
 
-    /* Bill notifications */
-    .bill-notification { font-size: 0.78rem; padding: 10px 12px; }
+    /* ── Bill notifications ── */
+    .bill-notification { font-size: 0.8rem; padding: 10px 14px; }
     .bill-notification i { font-size: 1.1rem !important; }
 
-    /* Health / financial ratio */
+    /* ── Health / financial ratio ── */
     .health-list { gap: 10px; }
-    .health-label { font-size: 0.7rem; }
-    .health-val { font-size: 0.72rem; }
+    .health-label { font-size: 0.72rem; }
+    .health-val { font-size: 0.74rem; }
 
-    /* Due countdown badges */
+    /* ── Due countdown badges ── */
     .due-countdown { font-size: 0.65rem; padding: 2px 5px; }
 
-    /* Alerts */
-    .dash-alert { font-size: 0.76rem; padding: 8px 12px; flex-wrap: wrap; gap: 6px; }
+    /* ── Alerts ── */
+    .dash-alert { font-size: 0.78rem; padding: 8px 12px; flex-wrap: wrap; gap: 6px; }
     .dash-alert .ms-auto { margin-left: 0 !important; }
-}
 
-/* ── PHONE (≤ 576px) ───────────────────────────────────── */
-@media (max-width: 576px) {
-    .page-content { padding: 12px; }
-    .top-navbar { height: 52px; }
-    .top-navbar .company-name { display: none !important; }
+    /* ── Touch-friendly targets ── */
+    .sidebar-link { padding: 12px 22px; min-height: 44px; }
+    .form-check-input { width: 1.1em; height: 1.1em; }
+    .dropdown-item { padding: 10px 16px; }
 
-    /* Page headers */
-    .page-header {
-        margin-bottom: 16px;
-    }
-    .page-header h2 { font-size: 1.05rem; }
-    .page-header .btn { font-size: 0.75rem; padding: 6px 10px; }
+    /* ── Form max-width overrides ── */
+    .card[style*="max-width"] { max-width: 100% !important; }
+    div[style*="max-width: 700px"],
+    div[style*="max-width: 750px"],
+    div[style*="max-width: 850px"],
+    div[style*="max-width: 600px"] { max-width: 100% !important; }
 
-    /* Dash header */
-    .dash-title { font-size: 1rem; }
-    .dash-subtitle { font-size: 0.7rem; }
-    .dash-header .btn { font-size: 0.72rem; padding: 5px 10px; }
-
-    /* KPI cards — more compact */
-    .kpi-card { padding: 12px 10px; gap: 10px; }
-    .kpi-value { font-size: 0.95rem; }
-    .kpi-label { font-size: 0.62rem; }
-    .kpi-label small { font-size: 0.55rem; }
-    .kpi-change { font-size: 0.6rem; }
-    .kpi-sub { font-size: 0.6rem; }
-    .kpi-icon { width: 32px; height: 32px; font-size: 0.88rem; border-radius: 8px; }
-
-    /* Net income */
-    .kpi-value-lg { font-size: 1.15rem; }
-    .kpi-value-sm { font-size: 0.88rem; }
-    .kpi-ring { width: 36px; height: 36px; font-size: 1rem; }
-
-    /* Cash breakdown */
-    .cash-item { font-size: 0.75rem; }
-    .cash-total { font-size: 0.75rem; }
-
-    /* Cards */
-    .card-body { padding: 12px; }
-    .card-header { padding: 10px 12px; font-size: 0.82rem; }
-    .dash-card { padding: 12px; }
-    .dash-card-title { font-size: 0.76rem; }
-
-    /* Forms */
-    .form-label { font-size: 0.75rem; }
-    .form-control, .form-select { font-size: 0.8rem; padding: 7px 10px; }
-
-    /* Charts */
-    .chart-wrap-md { height: 180px; }
-    .chart-wrap-sm { height: 140px; }
-    .chart-legend { font-size: 0.6rem; gap: 8px; flex-wrap: wrap; }
-
-    /* Table even more compact */
-    .table { font-size: 0.72rem; }
-    .table thead th { padding: 6px 8px; font-size: 0.6rem; letter-spacing: 0.3px; }
-    .table tbody td { padding: 6px 8px; }
-
-    /* Badge */
-    .badge-status { font-size: 0.6rem; padding: 3px 7px; }
-
-    /* Stamp smaller */
-    .stamp { font-size: 0.75rem; padding: 3px 10px; letter-spacing: 1px; border-width: 2px; border-radius: 6px; }
-
-    /* Buttons */
-    .d-flex.gap-2 > .btn-lg { width: 100%; text-align: center; }
-
-    /* Quick bar */
-    .quick-bar { gap: 6px; padding: 8px 10px; }
-    .quick-label { font-size: 0.62rem; width: 100%; }
-    .quick-btn { padding: 4px 8px; font-size: 0.68rem; }
-
-    /* Modal */
-    .kpi-modal-summary { flex-wrap: wrap; }
-    .kpi-modal-stat { min-width: 45%; flex: 1 1 45%; border-bottom: 1px solid var(--border); }
-    .kpi-modal-stat:last-child { border-right: none; }
-    .kpi-modal-header h6 { font-size: 0.85rem; }
-    .kpi-tabs { overflow-x: auto; flex-wrap: nowrap; }
-    .kpi-tab { white-space: nowrap; font-size: 0.7rem; padding: 8px 12px; }
-
-    /* Top rank */
-    .top-rank { width: 20px; height: 20px; font-size: 0.6rem; }
-
-    /* Totals card on forms — full width on mobile */
-    .card[style*="max-width: 400px"] { max-width: 100% !important; margin-left: 0 !important; }
-
-    /* Payment option cards */
-    .payment-card .card-body { padding: 12px !important; }
-    .payment-card i { font-size: 1.4rem !important; }
-    .payment-card h5 { font-size: 0.9rem; }
-    .payment-card small { font-size: 0.72rem; }
-
-    /* Fix search button */
-    .top-navbar .btn-outline-secondary { min-width: auto !important; }
-}
-
-/* ── Helper: Hide columns on mobile ───────────────────── */
-@media (max-width: 768px) {
-    .d-table-cell-md { display: none !important; }
-}
-@media (max-width: 576px) {
-    .d-table-cell-sm { display: none !important; }
-}
-
-/* ── Form tables: override inline widths on small screens ── */
-@media (max-width: 768px) {
-    /* Line-item tables in sales/purchases/journal forms */
+    /* ── Form tables: relax inline widths ── */
     .table-responsive table th[style*="width"],
     .table-responsive table td { min-width: auto !important; }
     .table th[style*="width:25%"],
@@ -1468,7 +1369,7 @@ body, .sidebar, .main-content, .top-navbar, .card, .table,
     .table th[style*="width:140px"],
     .table th[style*="width: 140px"] { width: 90px !important; }
 
-    /* Line item inputs */
+    /* ── Line item inputs ── */
     .journal-lines-table input,
     .journal-lines-table .form-select,
     #invoiceLines input,
@@ -1479,21 +1380,177 @@ body, .sidebar, .main-content, .top-navbar, .card, .table,
         padding: 6px 8px !important;
         min-width: 60px;
     }
-
-    /* forms max-width override */
-    .card[style*="max-width"] { max-width: 100% !important; }
-    div[style*="max-width: 700px"],
-    div[style*="max-width: 750px"],
-    div[style*="max-width: 850px"],
-    div[style*="max-width: 600px"] { max-width: 100% !important; }
 }
 
-/* ── Touch-friendly targets on mobile ──────────────────── */
+/* ── SMALL TABLET / LANDSCAPE PHONE (≤ 768px) ─────────── */
 @media (max-width: 768px) {
-    .sidebar-link { padding: 12px 22px; min-height: 44px; }
-    .btn { min-height: 38px; }
-    .form-check-input { width: 1.1em; height: 1.1em; }
-    .dropdown-item { padding: 10px 16px; }
+    .page-content { padding: 14px; }
+    .top-navbar { padding: 0 10px; }
+
+    .page-header h2 { font-size: 1.1rem; }
+
+    /* Cards */
+    .card-body { padding: 12px; }
+    .card-header { padding: 10px 12px; }
+
+    /* Forms */
+    .form-control, .form-select { font-size: 0.8rem; padding: 6px 10px; }
+    .btn { font-size: 0.78rem; padding: 6px 12px; }
+
+    /* Tables — tighter */
+    .table { font-size: 0.76rem; }
+    .table thead th { padding: 6px 8px; font-size: 0.62rem; }
+    .table tbody td { padding: 7px 8px; }
+    .table tfoot td { padding: 7px 8px; font-size: 0.76rem; }
+
+    /* Filter bars — stack 2-per-row */
+    .filter-bar .card-body { padding: 8px 10px; }
+    .filter-bar .form-label { font-size: 0.62rem; }
+    .filter-bar .form-control,
+    .filter-bar .form-select { font-size: 0.76rem; padding: 4px 7px; }
+    .filter-bar .btn { font-size: 0.74rem; padding: 4px 10px; }
+    .filter-bar [class*="col-md"],
+    .filter-bar [class*="col-lg"] { flex: 0 0 50% !important; max-width: 50% !important; }
+
+    /* KPI */
+    .kpi-value { font-size: 1rem; }
+    .kpi-icon { width: 34px; height: 34px; font-size: 0.95rem; }
+
+    /* Stamps */
+    .stamp { font-size: 0.8rem; padding: 3px 8px; }
+
+    /* Charts */
+    .chart-wrap-md { height: 180px; }
+    .chart-wrap-sm { height: 140px; }
+
+    /* Bill notifications */
+    .bill-notification { font-size: 0.76rem; padding: 8px 10px; }
+}
+
+/* ── PHONE (≤ 576px) ───────────────────────────────────── */
+@media (max-width: 576px) {
+    .page-content { padding: 10px; }
+    .top-navbar { height: 52px; }
+    .top-navbar .company-name { display: none !important; }
+
+    /* Page headers */
+    .page-header { margin-bottom: 14px; }
+    .page-header h2 { font-size: 1rem; }
+    .page-header .btn { font-size: 0.72rem; padding: 5px 8px; }
+
+    /* Summary cards (e.g. Petty Cash) — compact values */
+    .row > [class*="col"] > .card h3 { font-size: 0.95rem; }
+    .row > [class*="col"] > .card .card-body small { font-size: 0.6rem; }
+
+    /* Dash header */
+    .dash-title { font-size: 1rem; }
+    .dash-subtitle { font-size: 0.7rem; }
+    .dash-header .btn { font-size: 0.72rem; padding: 5px 10px; }
+
+    /* KPI cards — more compact */
+    .kpi-card { padding: 10px 8px; gap: 8px; }
+    .kpi-value { font-size: 0.9rem; }
+    .kpi-label { font-size: 0.6rem; }
+    .kpi-label small { font-size: 0.52rem; }
+    .kpi-change { font-size: 0.58rem; }
+    .kpi-sub { font-size: 0.58rem; }
+    .kpi-icon { width: 30px; height: 30px; font-size: 0.82rem; border-radius: 8px; }
+
+    /* Net income */
+    .kpi-value-lg { font-size: 1.1rem; }
+    .kpi-value-sm { font-size: 0.82rem; }
+    .kpi-ring { width: 34px; height: 34px; font-size: 0.95rem; }
+
+    /* Cash breakdown */
+    .cash-item { font-size: 0.72rem; }
+    .cash-total { font-size: 0.72rem; }
+
+    /* Cards */
+    .card-body { padding: 10px; }
+    .card-header { padding: 8px 10px; font-size: 0.8rem; }
+    .dash-card { padding: 10px; }
+    .dash-card-title { font-size: 0.74rem; }
+
+    /* Forms */
+    .form-label { font-size: 0.72rem; }
+    .form-control, .form-select { font-size: 0.78rem; padding: 6px 8px; }
+
+    /* Charts */
+    .chart-wrap-md { height: 160px; }
+    .chart-wrap-sm { height: 120px; }
+    .chart-legend { font-size: 0.58rem; gap: 6px; flex-wrap: wrap; }
+
+    /* Table even more compact */
+    .table { font-size: 0.7rem; }
+    .table thead th { padding: 5px 6px; font-size: 0.58rem; letter-spacing: 0.3px; }
+    .table tbody td { padding: 5px 6px; }
+    .table tfoot td { padding: 5px 6px; font-size: 0.7rem; }
+
+    /* Badge */
+    .badge-status { font-size: 0.58rem; padding: 2px 6px; }
+
+    /* Stamp smaller */
+    .stamp { font-size: 0.7rem; padding: 2px 8px; letter-spacing: 1px; border-width: 2px; border-radius: 6px; }
+
+    /* Buttons */
+    .btn { min-height: 34px; }
+    .d-flex.gap-2 > .btn-lg { width: 100%; text-align: center; }
+
+    /* Quick bar */
+    .quick-bar { gap: 6px; padding: 8px 10px; }
+    .quick-label { font-size: 0.6rem; width: 100%; }
+    .quick-btn { padding: 3px 6px; font-size: 0.65rem; }
+
+    /* Modal */
+    .kpi-modal-summary { flex-wrap: wrap; }
+    .kpi-modal-stat { min-width: 45%; flex: 1 1 45%; border-bottom: 1px solid var(--border); }
+    .kpi-modal-stat:last-child { border-right: none; }
+    .kpi-modal-header h6 { font-size: 0.82rem; }
+    .kpi-tabs { overflow-x: auto; flex-wrap: nowrap; }
+    .kpi-tab { white-space: nowrap; font-size: 0.68rem; padding: 6px 10px; }
+
+    /* Top rank */
+    .top-rank { width: 18px; height: 18px; font-size: 0.55rem; }
+
+    /* Totals card on forms — full width */
+    .card[style*="max-width: 400px"] { max-width: 100% !important; margin-left: 0 !important; }
+
+    /* Payment option cards */
+    .payment-card .card-body { padding: 10px !important; }
+    .payment-card i { font-size: 1.2rem !important; }
+    .payment-card h5 { font-size: 0.85rem; }
+    .payment-card small { font-size: 0.7rem; }
+
+    /* Fix search button */
+    .top-navbar .btn-outline-secondary { min-width: auto !important; }
+
+    /* ── Filter bars — even more compact ── */
+    .filter-bar .card-body { padding: 6px 8px; }
+    .filter-bar .row { --bs-gutter-x: 0.3rem; --bs-gutter-y: 0.25rem; }
+    .filter-bar .form-label { font-size: 0.58rem; margin-bottom: 0; }
+    .filter-bar .input-group-text { padding: 2px 5px; font-size: 0.68rem; }
+    .filter-bar .form-control,
+    .filter-bar .form-select { font-size: 0.72rem; padding: 3px 6px; min-height: 28px; }
+    .filter-bar .btn { font-size: 0.68rem; padding: 3px 8px; min-height: 28px; }
+    .filter-bar .filter-full { flex: 0 0 100% !important; max-width: 100% !important; }
+}
+
+/* ── Helper: Hide columns at breakpoints ──────────────── */
+@media (max-width: 991.98px) {
+    .d-table-cell-lg { display: none !important; }
+}
+@media (max-width: 768px) {
+    .d-table-cell-md { display: none !important; }
+}
+@media (max-width: 576px) {
+    .d-table-cell-sm { display: none !important; }
+}
+
+/* ── Input group dark mode ─────────────────────────────── */
+[data-theme="dark"] .input-group-text {
+    background: #162032;
+    border-color: #334155;
+    color: #94a3b8;
 }
 
 /* ─── SCROLLBAR ────────────────────────────────────────── */

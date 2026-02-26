@@ -6,6 +6,52 @@
     <a href="{{ url_for('customers.create') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Customer</a>
 </div>
 
+<!-- ── Filter Bar ── -->
+<div class="card mb-3 filter-bar">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-6 col-md-3">
+                <label class="form-label mb-0 small text-muted">Search</label>
+                <input type="text" name="q" class="form-control form-control-sm" placeholder="Name, email or phone…" value="{{ search_q }}">
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-0 small text-muted">City</label>
+                <select name="city" class="form-select form-select-sm">
+                    <option value="">All Cities</option>
+                    {% for c in cities %}
+                    <option value="{{ c }}" {{ 'selected' if filter_city == c }}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-0 small text-muted">Balance</label>
+                <select name="balance" class="form-select form-select-sm">
+                    <option value="">All</option>
+                    <option value="has" {{ 'selected' if filter_balance == 'has' }}>Has Balance</option>
+                    <option value="zero" {{ 'selected' if filter_balance == 'zero' }}>Zero Balance</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label mb-0 small text-muted">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">All</option>
+                    <option value="active" {{ 'selected' if filter_status == 'active' }}>Active</option>
+                    <option value="inactive" {{ 'selected' if filter_status == 'inactive' }}>Inactive</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3 d-flex gap-2">
+                <button class="btn btn-sm btn-primary flex-fill"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <a href="{{ url_for('customers.index') }}" class="btn btn-sm btn-outline-secondary flex-fill"><i class="bi bi-x-lg me-1"></i>Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ── Results count ── -->
+{% if search_q or filter_city or filter_balance or filter_status %}
+<div class="text-muted small mb-2"><i class="bi bi-filter me-1"></i>Showing {{ customers|length }} customer{{ 's' if customers|length != 1 }} matching filters</div>
+{% endif %}
+
 <div class="card">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -13,9 +59,9 @@
             <thead>
                 <tr>
                     <th>Name</th>
-                    <th class="d-table-cell-md">Email</th>
-                    <th>Phone</th>
-                    <th class="d-table-cell-md">City</th>
+                    <th class="d-table-cell-lg">Email</th>
+                    <th class="d-table-cell-md">Phone</th>
+                    <th class="d-table-cell-lg">City</th>
                     <th class="text-end">Balance</th>
                     <th>Actions</th>
                 </tr>
@@ -24,9 +70,9 @@
                 {% for c in customers %}
                 <tr>
                     <td class="fw-medium">{{ c.name }}</td>
-                    <td class="d-table-cell-md">{{ c.email or '—' }}</td>
-                    <td>{{ c.phone or '—' }}</td>
-                    <td class="d-table-cell-md">{{ c.city or '—' }}</td>
+                    <td class="d-table-cell-lg">{{ c.email or '—' }}</td>
+                    <td class="d-table-cell-md">{{ c.phone or '—' }}</td>
+                    <td class="d-table-cell-lg">{{ c.city or '—' }}</td>
                     <td class="text-end amount {{ 'amount-negative' if c.balance < 0 else '' }}">{{ currency_symbol }}{{ "{:,.2f}".format(c.balance) }}</td>
                     <td>
                         <a href="{{ url_for('customers.edit', id=c.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
@@ -37,9 +83,21 @@
                 </tr>
                 {% endfor %}
                 {% if not customers %}
-                <tr><td colspan="6" class="text-center text-muted py-4">No customers yet.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4">No customers found.</td></tr>
                 {% endif %}
             </tbody>
+            {% if customers %}
+            <tfoot>
+                <tr class="fw-bold">
+                    <td class="text-end">Total ({{ customers|length }})</td>
+                    <td class="d-table-cell-lg"></td>
+                    <td class="d-table-cell-md"></td>
+                    <td class="d-table-cell-lg"></td>
+                    <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(customers|map(attribute='balance')|sum) }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+            {% endif %}
         </table>
         </div>
     </div>

@@ -7,35 +7,28 @@
 </div>
 
 <!-- ── Balance Summary ── -->
-<div class="row g-3 mb-4">
-    <div class="col-sm-4">
-        <div class="card text-center border-0 shadow-sm">
-            <div class="card-body py-3">
-                <small class="text-muted d-block">Petty Cash Balance</small>
-                <h3 class="mb-0 {% if pc_balance < 0 %}text-danger{% else %}text-success{% endif %}">
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-around align-items-center text-center flex-wrap">
+            <div class="px-2 py-1">
+                <small class="text-muted d-block" style="font-size:.72rem;">Petty Cash Balance</small>
+                <span class="fw-bold fs-5 {% if pc_balance < 0 %}text-danger{% else %}text-success{% endif %}">
                     {{ currency_symbol }}{{ "{:,.2f}".format(pc_balance) }}
-                </h3>
+                </span>
                 {% if petty_cash_account %}
-                <small class="text-muted">{{ petty_cash_account.code }} - {{ petty_cash_account.name }}</small>
+                <small class="text-muted d-none d-md-block" style="font-size:.68rem;">{{ petty_cash_account.code }} – {{ petty_cash_account.name }}</small>
                 {% endif %}
             </div>
-        </div>
-    </div>
-    <div class="col-sm-4">
-        <div class="card text-center border-0 shadow-sm">
-            <div class="card-body py-3">
-                <small class="text-muted d-block">Total Expenses</small>
-                <h3 class="mb-0 text-dark">{{ currency_symbol }}{{ "{:,.2f}".format(expenses | sum(attribute='amount')) }}</h3>
-                <small class="text-muted">{{ expenses | length }} transaction{{ 's' if expenses | length != 1 }}</small>
+            <div class="vr d-none d-sm-block mx-1" style="height:40px;"></div>
+            <div class="px-2 py-1">
+                <small class="text-muted d-block" style="font-size:.72rem;">Total Expenses</small>
+                <span class="fw-bold fs-5 text-dark">{{ currency_symbol }}{{ "{:,.2f}".format(expenses | sum(attribute='amount')) }}</span>
+                <small class="text-muted d-block" style="font-size:.68rem;">{{ expenses | length }} transaction{{ 's' if expenses | length != 1 }}</small>
             </div>
-        </div>
-    </div>
-    <div class="col-sm-4">
-        <div class="card text-center border-0 shadow-sm">
-            <div class="card-body py-3">
-                <small class="text-muted d-block">Payment Method</small>
-                <h3 class="mb-0 text-dark"><i class="bi bi-cash-stack text-success"></i></h3>
-                <small class="text-muted">Cash Only</small>
+            <div class="vr d-none d-sm-block mx-1" style="height:40px;"></div>
+            <div class="px-2 py-1">
+                <small class="text-muted d-block" style="font-size:.72rem;">Payment</small>
+                <span class="fw-bold fs-6 text-dark"><i class="bi bi-cash-stack text-success me-1"></i>Cash</span>
             </div>
         </div>
     </div>
@@ -51,8 +44,8 @@
                     <th>PC #</th>
                     <th>Date</th>
                     <th>Category</th>
-                    <th class="d-table-cell-md">Description</th>
-                    <th class="d-table-cell-md">Reference</th>
+                    <th class="d-table-cell-lg">Description</th>
+                    <th class="d-table-cell-lg">Reference</th>
                     <th class="text-end">Amount</th>
                     <th>Actions</th>
                 </tr>
@@ -63,8 +56,8 @@
                     <td class="fw-medium">{{ e.expense_number }}</td>
                     <td>{{ e.date.strftime('%b %d, %Y') }}</td>
                     <td><span class="badge bg-secondary bg-opacity-10 text-dark">{{ e.category or '—' }}</span></td>
-                    <td class="d-table-cell-md">{{ (e.description[:40] + '...') if e.description and e.description|length > 40 else (e.description or '—') }}</td>
-                    <td class="d-table-cell-md">{{ e.reference or '—' }}</td>
+                    <td class="d-table-cell-lg">{{ (e.description[:40] + '...') if e.description and e.description|length > 40 else (e.description or '—') }}</td>
+                    <td class="d-table-cell-lg">{{ e.reference or '—' }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(e.amount) }}</td>
                     <td>
                         <form method="POST" action="{{ url_for('expenses.delete', id=e.id) }}" class="d-inline">

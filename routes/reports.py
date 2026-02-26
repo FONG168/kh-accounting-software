@@ -2,7 +2,7 @@ from flask_login import login_required, current_user
 from flask import Blueprint, render_template, request, current_app
 from database.models import (db, Account, JournalEntry, JournalLine, Invoice, Bill,
                              Product, Expense, Customer, Vendor, Budget,
-                             PaymentReceived, PaymentMade)
+                             PaymentReceived, PaymentMade, StockMovement)
 from datetime import date, timedelta
 from sqlalchemy import func
 import calendar
@@ -473,42 +473,198 @@ def sales_report():
 @login_required
 def expense_report():
     start, end = get_date_range()
-    expenses = Expense.query.filter(
+    selected_category = request.args.get('category', '').strip()
+
+    # All distinct categories for the filter dropdown
+    all_categories = [r[0] for r in db.session.query(Expense.category).filter(
+        Expense.user_id == current_user.id,
+        Expense.category.isnot(None),
+        Expense.category != ''
+    ).distinct().order_by(Expense.category).all()]
+
+    # Base query
+    q = Expense.query.filter(
         Expense.date >= start, Expense.date <= end,
         Expense.user_id == current_user.id
-    ).order_by(Expense.date.desc()).all()
+    )
+    if selected_category:
+        q = q.filter(Expense.category == selected_category)
 
+    expenses = q.order_by(Expense.date.desc()).all()
     total_expenses = sum(e.amount for e in expenses)
 
     # By category
-    by_category = db.session.query(
+    cat_q = db.session.query(
         Expense.category,
         func.sum(Expense.amount).label('total'),
         func.count(Expense.id).label('count')
     ).filter(
         Expense.date >= start, Expense.date <= end,
         Expense.user_id == current_user.id
-    ).group_by(Expense.category).order_by(func.sum(Expense.amount).desc()).all()
+    )
+    if selected_category:
+        cat_q = cat_q.filter(Expense.category == selected_category)
+    by_category = cat_q.group_by(Expense.category).order_by(func.sum(Expense.amount).desc()).all()
 
     return render_template('reports/expense_report.html',
                            expenses=expenses, by_category=by_category,
                            total_expenses=total_expenses,
-                           start=start, end=end)
+                           start=start, end=end,
+                           all_categories=all_categories,
+                           selected_category=selected_category)
 
 
 # ─── INVENTORY REPORT ─────────────────────────────────────
 @reports_bp.route('/inventory-report')
 @login_required
 def inventory_report():
-    products = Product.query.filter_by(is_active=True, is_service=False, user_id=current_user.id).order_by(Product.category, Product.name).all()
+    # ── Filters ──
+    product_id = request.args.get('product_id', type=int)
+    movement_type = request.args.get('type', '')
+    date_from = request.args.get('date_from', '').strip()
+    date_to = request.args.get('date_to', '').strip()
+    search_q = request.args.get('q', '').strip()
+    stock_status = request.args.get('stock_status', '').strip()
+    view_mode = request.args.get('view', 'summary')  # summary | movements
 
-    total_value = sum(p.quantity_on_hand * p.cost_price for p in products)
-    low_stock = [p for p in products if p.quantity_on_hand <= p.reorder_level and p.reorder_level > 0]
-    out_of_stock = [p for p in products if p.quantity_on_hand <= 0]
+    # All products (unfiltered – used for dropdown selectors)
+    all_products = Product.query.filter_by(
+        is_active=True, is_service=False, user_id=current_user.id
+    ).order_by(Product.name).all()
+
+    # ── Apply summary-level filters to product list ──
+    products = list(all_products)
+    if product_id:
+        products = [p for p in products if p.id == product_id]
+    if search_q:
+        sq = search_q.lower()
+        products = [p for p in products if sq in (p.name or '').lower() or sq in (p.sku or '').lower()]
+    if stock_status == 'low':
+        products = [p for p in products if float(p.quantity_on_hand or 0) <= float(p.reorder_level or 0) and float(p.reorder_level or 0) > 0]
+    elif stock_status == 'out':
+        products = [p for p in products if float(p.quantity_on_hand or 0) <= 0]
+    elif stock_status == 'negative':
+        products = [p for p in products if float(p.quantity_on_hand or 0) < 0]
+    elif stock_status == 'ok':
+        products = [p for p in products if float(p.quantity_on_hand or 0) > 0]
+
+    total_value = sum(float(p.quantity_on_hand or 0) * float(p.cost_price or 0) for p in all_products)
+    total_retail = sum(float(p.quantity_on_hand or 0) * float(p.selling_price or 0) for p in all_products)
+    low_stock = [p for p in all_products if float(p.quantity_on_hand or 0) <= float(p.reorder_level or 0) and float(p.reorder_level or 0) > 0]
+    out_of_stock = [p for p in all_products if float(p.quantity_on_hand or 0) <= 0]
+    negative_stock = [p for p in all_products if float(p.quantity_on_hand or 0) < 0]
+
+    # ── Stock Movement query (with filters) ──
+    mv_query = StockMovement.query.filter_by(user_id=current_user.id)
+    if product_id:
+        mv_query = mv_query.filter_by(product_id=product_id)
+    if movement_type:
+        mv_query = mv_query.filter_by(movement_type=movement_type)
+    if date_from:
+        try:
+            mv_query = mv_query.filter(StockMovement.date >= date.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            mv_query = mv_query.filter(StockMovement.date <= date.fromisoformat(date_to))
+        except ValueError:
+            pass
+    if search_q and view_mode == 'movements':
+        like = f'%{search_q}%'
+        mv_query = mv_query.filter(
+            db.or_(StockMovement.reference.ilike(like), StockMovement.notes.ilike(like))
+        )
+    movements = mv_query.order_by(StockMovement.date.desc(), StockMovement.id.desc()).limit(500).all()
+
+    # ── Aggregate movement stats ──
+    total_stock_in = db.session.query(func.coalesce(func.sum(StockMovement.quantity), 0)).filter(
+        StockMovement.user_id == current_user.id, StockMovement.movement_type == 'in'
+    ).scalar()
+    total_stock_out = db.session.query(func.coalesce(func.sum(StockMovement.quantity), 0)).filter(
+        StockMovement.user_id == current_user.id, StockMovement.movement_type == 'out'
+    ).scalar()
+    total_adjustments = StockMovement.query.filter_by(
+        user_id=current_user.id, movement_type='adjustment'
+    ).count()
+
+    # Per-product movement summary — batch query to avoid N+1
+    product_ids = [p.id for p in products]
+    if product_ids:
+        # One query: aggregate per product
+        from sqlalchemy import case, literal_column
+        mv_stats = db.session.query(
+            StockMovement.product_id,
+            func.coalesce(func.sum(case(
+                (StockMovement.movement_type == 'in', StockMovement.quantity), else_=0
+            )), 0).label('total_in'),
+            func.coalesce(func.sum(case(
+                (StockMovement.movement_type == 'out', StockMovement.quantity), else_=0
+            )), 0).label('total_out'),
+            func.sum(case(
+                (StockMovement.movement_type == 'adjustment', 1), else_=0
+            )).label('adjustments'),
+            func.max(StockMovement.date).label('last_date'),
+        ).filter(
+            StockMovement.user_id == current_user.id,
+            StockMovement.product_id.in_(product_ids)
+        ).group_by(StockMovement.product_id).all()
+
+        mv_map = {row.product_id: row for row in mv_stats}
+
+        # Damage count — separate quick query
+        dmg_stats = db.session.query(
+            StockMovement.product_id,
+            func.count(StockMovement.id).label('dmg_count')
+        ).filter(
+            StockMovement.user_id == current_user.id,
+            StockMovement.product_id.in_(product_ids),
+            db.or_(
+                StockMovement.notes.ilike('%broken%'),
+                StockMovement.notes.ilike('%damaged%'),
+                StockMovement.notes.ilike('%expired%'),
+                StockMovement.notes.ilike('%theft%'),
+                StockMovement.notes.ilike('%lost%'),
+            )
+        ).group_by(StockMovement.product_id).all()
+        dmg_map = {row.product_id: row.dmg_count for row in dmg_stats}
+    else:
+        mv_map = {}
+        dmg_map = {}
+
+    product_summaries = []
+    for p in products:
+        stats = mv_map.get(p.id)
+        product_summaries.append({
+            'product': p,
+            'total_in': float(stats.total_in) if stats else 0,
+            'total_out': float(stats.total_out) if stats else 0,
+            'adjustments': int(stats.adjustments) if stats else 0,
+            'damage_count': dmg_map.get(p.id, 0),
+            'value': float(p.quantity_on_hand or 0) * float(p.cost_price or 0),
+            'last_movement': stats.last_date if stats else None,
+        })
 
     return render_template('reports/inventory_report.html',
-                           products=products, total_value=total_value,
-                           low_stock=low_stock, out_of_stock=out_of_stock)
+                           products=products,
+                           all_products=all_products,
+                           product_summaries=product_summaries,
+                           total_value=total_value,
+                           total_retail=total_retail,
+                           low_stock=low_stock,
+                           out_of_stock=out_of_stock,
+                           negative_stock=negative_stock,
+                           movements=movements,
+                           total_stock_in=float(total_stock_in),
+                           total_stock_out=float(total_stock_out),
+                           total_adjustments=total_adjustments,
+                           view_mode=view_mode,
+                           filter_product_id=product_id,
+                           filter_type=movement_type,
+                           filter_stock_status=stock_status,
+                           filter_date_from=date_from,
+                           filter_date_to=date_to,
+                           search_q=search_q)
 
 
 # ─── ACCOUNTS RECEIVABLE AGING ────────────────────────────

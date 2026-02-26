@@ -1,106 +1,221 @@
 {% extends "base.html" %}
-{% block title %}Activity Log — KH Accounting Software Enterprise{% endblock %}
+{% block title %}Audit Log — KH Accounting Software Enterprise{% endblock %}
 {% block content %}
 <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-    <h2 class="mb-0"><i class="bi bi-clock-history me-2"></i>Activity Log</h2>
-    <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">{{ logs.total }} event{{ 's' if logs.total != 1 }}</span>
+    <div>
+        <h2 class="mb-0"><i class="bi bi-shield-check me-2"></i>Audit Log</h2>
+        <small class="text-muted">
+            {% if is_owner %}
+            Tracking all system activity across all users
+            {% else %}
+            Your personal activity history
+            {% endif %}
+        </small>
+    </div>
+    <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill fs-6">
+        <i class="bi bi-list-ul me-1"></i>{{ logs.total }} event{{ 's' if logs.total != 1 }}
+    </span>
 </div>
 
 <!-- ─── Filters ─── -->
-<div class="card mb-4">
-    <div class="card-body py-2">
-        <form method="GET" class="row g-2 align-items-end">
-            <div class="col-6 col-sm-auto">
-                <label class="form-label small mb-0">Action</label>
-                <select name="action" class="form-select form-select-sm">
-                    <option value="">All Actions</option>
-                    <option value="create"{{ ' selected' if action_filter == 'create' }}>Create</option>
-                    <option value="update"{{ ' selected' if action_filter == 'update' }}>Update</option>
-                    <option value="delete"{{ ' selected' if action_filter == 'delete' }}>Delete</option>
-                    <option value="login"{{ ' selected' if action_filter == 'login' }}>Login</option>
-                </select>
+<div class="card mb-4 border-0 shadow-sm filter-bar">
+    <div class="card-body py-3">
+        <form method="GET" id="auditFilterForm">
+            <div class="row g-2 align-items-end">
+                <!-- Action filter -->
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label small mb-0 fw-semibold">Action</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-lightning"></i></span>
+                        <select name="action" class="form-select form-select-sm">
+                            <option value="">All Actions</option>
+                            {% for at in action_types %}
+                            <option value="{{ at }}"{{ ' selected' if action_filter == at }}>
+                                {{ action_meta.get(at, {}).get('label', at|capitalize) }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Entity filter -->
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label small mb-0 fw-semibold">Entity</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-diagram-3"></i></span>
+                        <select name="entity" class="form-select form-select-sm">
+                            <option value="">All Types</option>
+                            {% for et in entity_types %}
+                            <option value="{{ et }}"{{ ' selected' if entity_filter == et }}>{{ et }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- User filter (admin only) -->
+                {% if is_owner and users_list %}
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label small mb-0 fw-semibold">User</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <select name="user" class="form-select form-select-sm">
+                            <option value="">All Users</option>
+                            {% for u in users_list %}
+                            <option value="{{ u.id }}"{{ ' selected' if user_filter == u.id|string }}>
+                                {{ u.full_name }}
+                                {% if u.role %}<small>({{ u.role }})</small>{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Date range -->
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label small mb-0 fw-semibold">From</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                        <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from }}">
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label small mb-0 fw-semibold">To</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                        <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to }}">
+                    </div>
+                </div>
+
+                <!-- Search -->
+                <div class="col-12 col-md-6 col-lg">
+                    <label class="form-label small mb-0 fw-semibold">Search</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" name="q" class="form-control form-control-sm"
+                               value="{{ search_query }}" placeholder="Label, details, or user name…">
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="col-12 col-md-3 col-lg-auto">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-primary flex-fill">
+                            <i class="bi bi-funnel me-1"></i>Filter
+                        </button>
+                        {% if action_filter or entity_filter or search_query or date_from or date_to or user_filter %}
+                        <a href="{{ url_for('audit.index') }}" class="btn btn-sm btn-outline-secondary flex-fill">
+                            <i class="bi bi-x-lg me-1"></i>Clear
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
-            <div class="col-6 col-sm-auto">
-                <label class="form-label small mb-0">Entity</label>
-                <select name="entity" class="form-select form-select-sm">
-                    <option value="">All Types</option>
-                    {% for et in entity_types %}
-                    <option value="{{ et }}"{{ ' selected' if entity_filter == et }}>{{ et }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-12 col-sm">
-                <label class="form-label small mb-0">Search</label>
-                <input type="text" name="q" class="form-control form-control-sm" value="{{ search_query }}" placeholder="Search by label, details, or user…">
-            </div>
-            <div class="col-12 col-sm-auto">
-                <button class="btn btn-sm btn-primary w-100"><i class="bi bi-funnel me-1"></i>Filter</button>
-            </div>
-            {% if action_filter or entity_filter or search_query %}
-            <div class="col-12 col-sm-auto">
-                <a href="{{ url_for('audit.index') }}" class="btn btn-sm btn-outline-secondary w-100"><i class="bi bi-x-lg me-1"></i>Clear</a>
-            </div>
-            {% endif %}
         </form>
     </div>
 </div>
 
 <!-- ─── Activity Table ─── -->
-<div class="card">
+<div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
-                <thead>
+                <thead class="table-light">
                     <tr>
                         <th style="width:160px">Date & Time</th>
-                        <th>User</th>
+                        {% if is_owner %}<th>User</th>{% endif %}
                         <th>Action</th>
                         <th>Entity</th>
                         <th class="d-none d-md-table-cell">Details</th>
-                        <th class="d-none d-lg-table-cell">IP</th>
+                        <th class="d-none d-lg-table-cell">IP Address</th>
+                        <th class="d-none d-xl-table-cell" style="width:40px"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for log in logs.items %}
-                    <tr>
+                    <tr class="audit-row" data-bs-toggle="collapse" data-bs-target="#detail-{{ log.id }}" style="cursor:pointer;">
                         <td class="text-nowrap small">
                             <i class="bi bi-clock me-1 text-muted"></i>{{ log.timestamp.strftime('%b %d, %Y %H:%M') }}
                         </td>
+                        {% if is_owner %}
                         <td>
-                            <span class="badge bg-light text-dark border">{{ log.user_name or 'System' }}</span>
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="badge bg-light text-dark border">
+                                    <i class="bi bi-person me-1"></i>{{ log.user_name or 'System' }}
+                                </span>
+                                {% if log.user_role %}
+                                <span class="badge bg-{{ 'primary' if log.user_role == 'admin' else ('info' if log.user_role == 'accountant' else 'secondary') }}-subtle text-{{ 'primary' if log.user_role == 'admin' else ('info' if log.user_role == 'accountant' else 'secondary') }}-emphasis" style="font-size:0.65rem;">
+                                    {{ log.user_role }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        {% endif %}
+                        <td>
+                            {% set meta = action_meta.get(log.action, {'label': log.action|capitalize, 'icon': 'bi-circle', 'badge': 'bg-secondary-subtle text-secondary-emphasis'}) %}
+                            <span class="badge {{ meta.badge }}">
+                                <i class="bi {{ meta.icon }} me-1"></i>{{ meta.label }}
+                            </span>
                         </td>
                         <td>
-                            {% if log.action == 'create' %}
-                            <span class="badge bg-success-subtle text-success-emphasis"><i class="bi bi-plus-circle me-1"></i>Create</span>
-                            {% elif log.action == 'update' %}
-                            <span class="badge bg-warning-subtle text-warning-emphasis"><i class="bi bi-pencil me-1"></i>Update</span>
-                            {% elif log.action == 'delete' %}
-                            <span class="badge bg-danger-subtle text-danger-emphasis"><i class="bi bi-trash me-1"></i>Delete</span>
-                            {% elif log.action == 'login' %}
-                            <span class="badge bg-info-subtle text-info-emphasis"><i class="bi bi-box-arrow-in-right me-1"></i>Login</span>
-                            {% else %}
-                            <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ log.action }}</span>
-                            {% endif %}
-                        </td>
-                        <td>
+                            {% set entity_url = get_entity_url(log.entity_type, log.entity_id, log.action) %}
                             <span class="fw-semibold">{{ log.entity_type }}</span>
                             {% if log.entity_label %}
-                            <br><small class="text-muted">{{ log.entity_label }}</small>
+                            <br>
+                            {% if entity_url %}
+                            <a href="{{ entity_url }}" class="text-decoration-none small" onclick="event.stopPropagation();" title="View {{ log.entity_type }}">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>{{ log.entity_label }}
+                            </a>
+                            {% else %}
+                            <small class="text-muted">{{ log.entity_label }}</small>
+                            {% endif %}
                             {% endif %}
                         </td>
                         <td class="d-none d-md-table-cell small text-muted" style="max-width:300px;">
                             {{ log.details|truncate(120) if log.details else '—' }}
                         </td>
                         <td class="d-none d-lg-table-cell small text-muted">{{ log.ip_address or '—' }}</td>
+                        <td class="d-none d-xl-table-cell text-center">
+                            <i class="bi bi-chevron-down text-muted small"></i>
+                        </td>
+                    </tr>
+                    <!-- Expandable detail row -->
+                    <tr class="collapse" id="detail-{{ log.id }}">
+                        <td colspan="{{ 7 if is_owner else 6 }}" class="bg-light border-0 px-4 py-3">
+                            <div class="row g-3 small">
+                                <div class="col-md-5">
+                                    <strong>Full Details</strong>
+                                    <p class="mb-1 text-muted">{{ log.details or 'No additional details.' }}</p>
+                                    {% set detail_url = get_entity_url(log.entity_type, log.entity_id, log.action) %}
+                                    {% if detail_url %}
+                                    <a href="{{ detail_url }}" class="btn btn-sm btn-outline-primary mt-1">
+                                        <i class="bi bi-eye me-1"></i>View {{ log.entity_type }}
+                                    </a>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>IP Address</strong>
+                                    <p class="mb-1 text-muted font-monospace">{{ log.ip_address or '—' }}</p>
+                                    <strong>User Agent</strong>
+                                    <p class="mb-0 text-muted" style="font-size:0.75rem; word-break:break-all;">{{ log.user_agent or '—' }}</p>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>User</strong>
+                                    <p class="mb-1 text-muted">{{ log.user_name or 'System' }}{% if log.user_role %} ({{ log.user_role }}){% endif %}</p>
+                                    <strong>Timestamp</strong>
+                                    <p class="mb-0 text-muted">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC') }}</p>
+                                </div>
+                            </div>
+                        </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-5">
-                            <i class="bi bi-clock-history fs-1 d-block mb-2 opacity-25"></i>
-                            {% if action_filter or entity_filter or search_query %}
+                        <td colspan="{{ 7 if is_owner else 6 }}" class="text-center text-muted py-5">
+                            <i class="bi bi-shield-check fs-1 d-block mb-2 opacity-25"></i>
+                            {% if action_filter or entity_filter or search_query or date_from or date_to or user_filter %}
                             No activity matches your filters.
                             {% else %}
-                            No activity recorded yet. Actions will appear here automatically.
+                            No activity recorded yet. All actions will be tracked here automatically.
                             {% endif %}
                         </td>
                     </tr>
@@ -117,13 +232,13 @@
     <ul class="pagination pagination-sm mb-0">
         {% if logs.has_prev %}
         <li class="page-item">
-            <a class="page-link" href="{{ url_for('audit.index', page=logs.prev_num, action=action_filter, entity=entity_filter, q=search_query) }}">&laquo;</a>
+            <a class="page-link" href="{{ url_for('audit.index', page=logs.prev_num, action=action_filter, entity=entity_filter, user=user_filter, q=search_query, date_from=date_from, date_to=date_to) }}">&laquo;</a>
         </li>
         {% endif %}
         {% for p in logs.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
             {% if p %}
             <li class="page-item {{ 'active' if p == logs.page }}">
-                <a class="page-link" href="{{ url_for('audit.index', page=p, action=action_filter, entity=entity_filter, q=search_query) }}">{{ p }}</a>
+                <a class="page-link" href="{{ url_for('audit.index', page=p, action=action_filter, entity=entity_filter, user=user_filter, q=search_query, date_from=date_from, date_to=date_to) }}">{{ p }}</a>
             </li>
             {% else %}
             <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
@@ -131,10 +246,24 @@
         {% endfor %}
         {% if logs.has_next %}
         <li class="page-item">
-            <a class="page-link" href="{{ url_for('audit.index', page=logs.next_num, action=action_filter, entity=entity_filter, q=search_query) }}">&raquo;</a>
+            <a class="page-link" href="{{ url_for('audit.index', page=logs.next_num, action=action_filter, entity=entity_filter, user=user_filter, q=search_query, date_from=date_from, date_to=date_to) }}">&raquo;</a>
         </li>
         {% endif %}
     </ul>
 </nav>
 {% endif %}
+
+<!-- ─── Legend ─── -->
+<div class="card mt-4 border-0 shadow-sm">
+    <div class="card-body py-3">
+        <h6 class="mb-2"><i class="bi bi-info-circle me-1"></i>Activity Types Legend</h6>
+        <div class="d-flex flex-wrap gap-2">
+            {% for key, meta in action_meta.items() %}
+            <span class="badge {{ meta.badge }}" style="font-size:0.75rem;">
+                <i class="bi {{ meta.icon }} me-1"></i>{{ meta.label }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
 {% endblock %}

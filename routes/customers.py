@@ -8,8 +8,46 @@ customers_bp = Blueprint('customers', __name__, url_prefix='/customers')
 @customers_bp.route('/')
 @login_required
 def index():
-    customers = Customer.query.filter_by(user_id=current_user.id).order_by(Customer.name).all()
-    return render_template('customers/index.html', customers=customers)
+    query = Customer.query.filter_by(user_id=current_user.id)
+
+    # --- Filters ---
+    search_q = request.args.get('q', '').strip()
+    filter_city = request.args.get('city', '')
+    filter_balance = request.args.get('balance', '')     # 'has' | 'zero'
+    filter_status = request.args.get('status', '')       # 'active' | 'inactive'
+
+    if search_q:
+        like = f'%{search_q}%'
+        query = query.filter(
+            db.or_(
+                Customer.name.ilike(like),
+                Customer.email.ilike(like),
+                Customer.phone.ilike(like),
+            )
+        )
+    if filter_city:
+        query = query.filter(Customer.city == filter_city)
+    if filter_balance == 'has':
+        query = query.filter(Customer.balance != 0)
+    elif filter_balance == 'zero':
+        query = query.filter(Customer.balance == 0)
+    if filter_status == 'active':
+        query = query.filter(Customer.is_active == True)
+    elif filter_status == 'inactive':
+        query = query.filter(Customer.is_active == False)
+
+    customers = query.order_by(Customer.name).all()
+
+    # Distinct cities for the dropdown (one cheap query)
+    cities = db.session.query(Customer.city)\
+        .filter(Customer.user_id == current_user.id, Customer.city != '', Customer.city.isnot(None))\
+        .distinct().order_by(Customer.city).all()
+    cities = [c[0] for c in cities]
+
+    return render_template('customers/index.html',
+                           customers=customers, cities=cities,
+                           search_q=search_q, filter_city=filter_city,
+                           filter_balance=filter_balance, filter_status=filter_status)
 
 
 @customers_bp.route('/create', methods=['GET', 'POST'])

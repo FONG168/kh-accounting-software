@@ -14,12 +14,12 @@
                 <tr>
                     <th>Entry #</th>
                     <th>Date</th>
-                    <th>Description</th>
-                    <th class="d-table-cell-md">Reference</th>
-                    <th class="d-table-cell-md">Source</th>
+                    <th class="d-table-cell-md">Description</th>
+                    <th class="d-table-cell-lg">Reference</th>
+                    <th class="d-table-cell-lg">Source</th>
                     <th class="text-end">Debit</th>
                     <th class="text-end">Credit</th>
-                    <th>Status</th>
+                    <th class="d-table-cell-sm">Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -28,12 +28,12 @@
                 <tr>
                     <td><a href="{{ url_for('journal.view', id=entry.id) }}" class="fw-medium text-decoration-none">{{ entry.entry_number }}</a></td>
                     <td>{{ entry.date.strftime('%b %d, %Y') }}</td>
-                    <td>{{ entry.description[:50] }}{% if entry.description|length > 50 %}...{% endif %}</td>
-                    <td class="d-table-cell-md">{{ entry.reference or '—' }}</td>
-                    <td class="d-table-cell-md"><span class="text-muted">{{ entry.source }}</span></td>
+                    <td class="d-table-cell-md">{{ entry.description[:50] }}{% if entry.description|length > 50 %}...{% endif %}</td>
+                    <td class="d-table-cell-lg">{{ entry.reference or '—' }}</td>
+                    <td class="d-table-cell-lg"><span class="text-muted">{{ entry.source }}</span></td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(entry.total_debit) }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(entry.total_credit) }}</td>
-                    <td>
+                    <td class="d-table-cell-sm">
                         {% if entry.is_posted %}
                         <span class="badge-status badge-paid">Posted</span>
                         {% else %}

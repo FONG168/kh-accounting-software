@@ -20,13 +20,13 @@
                 <tr>
                     <th>SKU</th>
                     <th>Name</th>
-                    <th class="d-table-cell-md">Category</th>
-                    {% if not is_service_business %}<th>Type</th>{% endif %}
-                    <th class="text-end d-table-cell-md">Cost Price</th>
+                    <th class="d-table-cell-lg">Category</th>
+                    {% if not is_service_business %}<th class="d-table-cell-md">Type</th>{% endif %}
+                    <th class="text-end d-table-cell-lg">Cost Price</th>
                     <th class="text-end">Selling Price</th>
                     {% if not is_service_business %}
                     <th class="text-end">Qty on Hand</th>
-                    <th class="text-end d-table-cell-md">Reorder Level</th>
+                    <th class="text-end d-table-cell-lg">Reorder Level</th>
                     {% endif %}
                     <th>Actions</th>
                 </tr>
@@ -36,9 +36,9 @@
                 <tr class="{{ 'table-warning' if not is_service_business and not p.is_service and p.quantity_on_hand <= p.reorder_level and p.reorder_level > 0 }}">
                     <td><code>{{ p.sku }}</code></td>
                     <td class="fw-medium">{{ p.name }}</td>
-                    <td class="d-table-cell-md">{{ p.category_ref.name if p.category_ref else '—' }}</td>
+                    <td class="d-table-cell-lg">{{ p.category_ref.name if p.category_ref else '—' }}</td>
                     {% if not is_service_business %}
-                    <td>
+                    <td class="d-table-cell-md">
                         {% if p.is_service %}
                         <span class="badge bg-info">Service</span>
                         {% else %}
@@ -46,13 +46,13 @@
                         {% endif %}
                     </td>
                     {% endif %}
-                    <td class="text-end amount d-table-cell-md">{{ currency_symbol }}{{ "{:,.2f}".format(p.cost_price) }}</td>
+                    <td class="text-end amount d-table-cell-lg">{{ currency_symbol }}{{ "{:,.2f}".format(p.cost_price) }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(p.selling_price) }}</td>
                     {% if not is_service_business %}
                     <td class="text-end {{ 'text-danger fw-bold' if not p.is_service and p.quantity_on_hand <= p.reorder_level and p.reorder_level > 0 }}">
                         {% if p.is_service %}—{% else %}{{ p.quantity_on_hand }} {{ p.unit }}{% endif %}
                     </td>
-                    <td class="text-end d-table-cell-md">{% if not p.is_service %}{{ p.reorder_level }} {{ p.unit }}{% else %}—{% endif %}</td>
+                    <td class="text-end d-table-cell-lg">{% if not p.is_service %}{{ p.reorder_level }} {{ p.unit }}{% else %}—{% endif %}</td>
                     {% endif %}
                     <td class="text-nowrap">
                         {% if not is_service_business and not p.is_service %}

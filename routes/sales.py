@@ -85,16 +85,51 @@ def create_invoice_journal_entry(invoice):
 @sales_bp.route('/')
 @login_required
 def index():
-    invoices = Invoice.query.filter_by(user_id=current_user.id).order_by(Invoice.date.desc(), Invoice.id.desc()).all()
+    query = Invoice.query.filter_by(user_id=current_user.id)
 
-    # Auto-update overdue status
+    # --- Filters ---
+    search_q        = request.args.get('q', '').strip()
+    filter_customer = request.args.get('customer', '')
+    filter_status   = request.args.get('status', '')
+    filter_from     = request.args.get('date_from', '')
+    filter_to       = request.args.get('date_to', '')
+
+    if search_q:
+        like = f'%{search_q}%'
+        query = query.filter(
+            db.or_(
+                Invoice.invoice_number.ilike(like),
+                Invoice.customer.has(Customer.name.ilike(like)),
+            )
+        )
+    if filter_customer:
+        query = query.filter(Invoice.customer_id == int(filter_customer))
+    if filter_status:
+        query = query.filter(Invoice.status == filter_status)
+    if filter_from:
+        query = query.filter(Invoice.date >= filter_from)
+    if filter_to:
+        query = query.filter(Invoice.date <= filter_to)
+
+    invoices = query.order_by(Invoice.date.desc(), Invoice.id.desc()).all()
+
+    # Auto-update overdue status (only commit if something changed)
     today = date.today()
+    _changed = False
     for inv in invoices:
         if inv.status in ('owed', 'sent', 'partial') and inv.due_date and inv.due_date < today:
             inv.status = 'overdue'
-    db.session.commit()
+            _changed = True
+    if _changed:
+        db.session.commit()
 
-    return render_template('sales/index.html', invoices=invoices, today=today)
+    # Customer list for filter dropdown
+    customers = Customer.query.filter_by(user_id=current_user.id).order_by(Customer.name).all()
+
+    return render_template('sales/index.html', invoices=invoices, today=today,
+                           customers=customers, search_q=search_q,
+                           filter_customer=filter_customer, filter_status=filter_status,
+                           filter_from=filter_from, filter_to=filter_to)
 
 
 def create_payment_received_journal(payment, customer_name):
@@ -311,11 +346,10 @@ def create():
                 if customer:
                     customer.balance -= invoice.total
 
-                db.session.commit()
-                flash(f'Invoice {invoice.invoice_number} created and PAID immediately. Stock updated.', 'success')
                 log_activity('create', 'Invoice', invoice.id, invoice.invoice_number,
                              f'Cash sale {invoice.invoice_number} to {invoice.customer.name} for {invoice.total:,.2f}')
                 db.session.commit()
+                flash(f'Invoice {invoice.invoice_number} created and PAID immediately. Stock updated.', 'success')
                 return redirect(url_for('sales.view', id=invoice.id))
 
             else:
@@ -324,11 +358,10 @@ def create():
                     invoice.due_date = invoice.date + timedelta(days=30)
                 invoice.status = 'owed'
 
-                db.session.commit()
-                flash(f'Invoice {invoice.invoice_number} created as OWED. Due: {invoice.due_date.strftime("%b %d, %Y")}. Stock updated.', 'success')
                 log_activity('create', 'Invoice', invoice.id, invoice.invoice_number,
                              f'Credit sale {invoice.invoice_number} to {invoice.customer.name} for {invoice.total:,.2f}')
                 db.session.commit()
+                flash(f'Invoice {invoice.invoice_number} created as OWED. Due: {invoice.due_date.strftime("%b %d, %Y")}. Stock updated.', 'success')
                 return redirect(url_for('sales.view', id=invoice.id))
 
     customers = Customer.query.filter_by(is_active=True, user_id=current_user.id).order_by(Customer.name).all()
@@ -440,8 +473,6 @@ def create_payment():
             customer.balance -= amount
 
         db.session.add(payment)
-        db.session.commit()
-
         log_activity('create', 'Payment Received', payment.id, payment.payment_number,
                      f'Payment {payment.payment_number} of {amount:,.2f} from {customer.name if customer else "customer"}')
         db.session.commit()
@@ -469,3 +500,73 @@ def create_payment():
     return render_template('sales/payment_form.html', payment=None, customers=customers,
                            invoices=invoices, bank_accounts=bank_accounts, today=date.today(),
                            prefill_invoice=prefill_invoice)
+
+
+# ─── RECALCULATE COGS FOR ALL INVOICES ───────────────────
+@sales_bp.route('/recalculate-cogs', methods=['POST'])
+@login_required
+def recalculate_cogs():
+    """Fix COGS journal entries for all invoices using current product cost prices.
+    This corrects any invoices that were created when cost_price was $0 due to bugs."""
+    settings = CompanySettings.query.filter_by(user_id=current_user.id).first()
+    is_service_biz = settings and settings.business_type == 'service'
+    if is_service_biz:
+        flash('Service businesses do not have COGS.', 'info')
+        return redirect(url_for('reports.profit_loss'))
+
+    cogs_account = Account.query.filter_by(code='5000', user_id=current_user.id).first()
+    inventory_account = Account.query.filter_by(code='1300', user_id=current_user.id).first()
+    if not cogs_account or not inventory_account:
+        flash('COGS (5000) or Inventory (1300) account not found.', 'danger')
+        return redirect(url_for('reports.profit_loss'))
+
+    invoices = Invoice.query.filter_by(user_id=current_user.id).all()
+    fixed_count = 0
+
+    for invoice in invoices:
+        # Find the sale journal entry for this invoice
+        journal = JournalEntry.query.filter_by(
+            reference=invoice.invoice_number,
+            source='sale',
+            user_id=current_user.id
+        ).first()
+        if not journal:
+            continue
+
+        # Calculate correct COGS from current product cost prices
+        correct_cogs = 0
+        for item in invoice.items:
+            if item.product and not item.product.is_service:
+                cost = float(item.product.cost_price or 0)
+                if cost > 0:
+                    correct_cogs += float(item.quantity) * cost
+
+        # Find existing COGS lines in this journal entry
+        existing_cogs_line = None
+        existing_inv_line = None
+        for line in journal.lines:
+            if line.account_id == cogs_account.id:
+                existing_cogs_line = line
+            elif line.account_id == inventory_account.id and line.credit > 0:
+                existing_inv_line = line
+
+        if correct_cogs > 0:
+            if existing_cogs_line:
+                # Update existing COGS lines if amount differs
+                if abs(float(existing_cogs_line.debit) - correct_cogs) > 0.01:
+                    existing_cogs_line.debit = correct_cogs
+                    if existing_inv_line:
+                        existing_inv_line.credit = correct_cogs
+                    fixed_count += 1
+            else:
+                # No COGS lines exist — add them
+                journal.lines.append(JournalLine(account_id=cogs_account.id, debit=correct_cogs, credit=0, user_id=current_user.id))
+                journal.lines.append(JournalLine(account_id=inventory_account.id, debit=0, credit=correct_cogs, user_id=current_user.id))
+                fixed_count += 1
+
+    db.session.commit()
+    if fixed_count:
+        flash(f'✅ COGS recalculated for {fixed_count} invoice(s).', 'success')
+    else:
+        flash('All COGS entries are already correct.', 'info')
+    return redirect(url_for('reports.profit_loss'))

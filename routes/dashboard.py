@@ -4,7 +4,7 @@ from database.models import (db, Account, Invoice, Bill, Expense, Product,
                              Customer, Vendor, JournalEntry, PaymentReceived,
                              PaymentMade, CompanySettings, Announcement)
 from datetime import date, timedelta, datetime
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, extract
 import json
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -166,10 +166,9 @@ def index():
     working_capital = current_assets - current_liabilities
 
     # ─── CHART DATA: Monthly Revenue & Expenses (last 6 months) ───
+    # Build date ranges for 6 months
+    _month_ranges = []
     chart_labels = []
-    chart_revenue = []
-    chart_expenses = []
-    chart_profit = []
     for i in range(5, -1, -1):
         m = today.month - i
         y = today.year
@@ -177,33 +176,82 @@ def index():
             m += 12
             y -= 1
         m_start, m_end = _month_range(y, m)
+        _month_ranges.append((m_start, m_end))
         chart_labels.append(m_start.strftime('%b %Y'))
 
-        rev = float(db.session.query(
-            func.coalesce(func.sum(Invoice.total), 0)
-        ).filter(
-            Invoice.user_id == current_user.id,
-            Invoice.date >= m_start, Invoice.date <= m_end,
-            Invoice.status != 'draft'
-        ).scalar())
-        chart_revenue.append(rev)
+    # Single grouped query: monthly revenue
+    _six_months_ago = _month_ranges[0][0]
+    _rev_by_month = {}
+    for row in db.session.query(
+        extract('year', Invoice.date).label('y'),
+        extract('month', Invoice.date).label('m'),
+        func.coalesce(func.sum(Invoice.total), 0)
+    ).filter(
+        Invoice.user_id == current_user.id,
+        Invoice.date >= _six_months_ago, Invoice.date <= today,
+        Invoice.status != 'draft'
+    ).group_by('y', 'm').all():
+        _rev_by_month[f'{int(row[0])}-{int(row[1])}'] = row[2]
 
-        exp_b = float(db.session.query(
-            func.coalesce(func.sum(Bill.total), 0)
-        ).filter(
-            Bill.user_id == current_user.id,
-            Bill.date >= m_start, Bill.date <= m_end,
-            Bill.status != 'draft'
-        ).scalar())
-        exp_p = float(db.session.query(
-            func.coalesce(func.sum(Expense.amount), 0)
-        ).filter(
-            Expense.user_id == current_user.id,
-            Expense.date >= m_start, Expense.date <= m_end
-        ).scalar())
-        exp = exp_b + exp_p
+    _bill_by_month = {}
+    for row in db.session.query(
+        extract('year', Bill.date).label('y'),
+        extract('month', Bill.date).label('m'),
+        func.coalesce(func.sum(Bill.total), 0)
+    ).filter(
+        Bill.user_id == current_user.id,
+        Bill.date >= _six_months_ago, Bill.date <= today,
+        Bill.status != 'draft'
+    ).group_by('y', 'm').all():
+        _bill_by_month[f'{int(row[0])}-{int(row[1])}'] = row[2]
+
+    _exp_by_month = {}
+    for row in db.session.query(
+        extract('year', Expense.date).label('y'),
+        extract('month', Expense.date).label('m'),
+        func.coalesce(func.sum(Expense.amount), 0)
+    ).filter(
+        Expense.user_id == current_user.id,
+        Expense.date >= _six_months_ago, Expense.date <= today,
+    ).group_by('y', 'm').all():
+        _exp_by_month[f'{int(row[0])}-{int(row[1])}'] = row[2]
+
+    _pr_by_month = {}
+    for row in db.session.query(
+        extract('year', PaymentReceived.date).label('y'),
+        extract('month', PaymentReceived.date).label('m'),
+        func.coalesce(func.sum(PaymentReceived.amount), 0)
+    ).filter(
+        PaymentReceived.user_id == current_user.id,
+        PaymentReceived.date >= _six_months_ago, PaymentReceived.date <= today,
+    ).group_by('y', 'm').all():
+        _pr_by_month[f'{int(row[0])}-{int(row[1])}'] = row[2]
+
+    _pm_by_month = {}
+    for row in db.session.query(
+        extract('year', PaymentMade.date).label('y'),
+        extract('month', PaymentMade.date).label('m'),
+        func.coalesce(func.sum(PaymentMade.amount), 0)
+    ).filter(
+        PaymentMade.user_id == current_user.id,
+        PaymentMade.date >= _six_months_ago, PaymentMade.date <= today,
+    ).group_by('y', 'm').all():
+        _pm_by_month[f'{int(row[0])}-{int(row[1])}'] = row[2]
+
+    chart_revenue = []
+    chart_expenses = []
+    chart_profit = []
+    cf_in_data = []
+    cf_out_data = []
+    for m_start, m_end in _month_ranges:
+        key = f'{m_start.year}-{m_start.month}'
+        rev = float(_rev_by_month.get(key, 0))
+        exp = float(_bill_by_month.get(key, 0)) + float(_exp_by_month.get(key, 0))
+        chart_revenue.append(rev)
         chart_expenses.append(exp)
         chart_profit.append(rev - exp)
+        cf_in_data.append(float(_pr_by_month.get(key, 0)))
+        cf_out_data.append(float(_pm_by_month.get(key, 0)) + float(_exp_by_month.get(key, 0)))
 
     # ─── CHART DATA: Expense Breakdown by Category (this year) ───
     expense_cats = db.session.query(
@@ -242,41 +290,7 @@ def index():
     ).scalar())
     ytd_expenses = ytd_expenses_bills + ytd_expenses_petty
 
-    # ─── CHART DATA: Cash Flow (payments in vs out last 6 months) ──
-    cf_in_data = []
-    cf_out_data = []
-    for i in range(5, -1, -1):
-        m = today.month - i
-        y = today.year
-        while m <= 0:
-            m += 12
-            y -= 1
-        m_start, m_end = _month_range(y, m)
-
-        cash_in = float(db.session.query(
-            func.coalesce(func.sum(PaymentReceived.amount), 0)
-        ).filter(
-            PaymentReceived.user_id == current_user.id,
-            PaymentReceived.date >= m_start,
-            PaymentReceived.date <= m_end
-        ).scalar())
-        cf_in_data.append(cash_in)
-
-        cash_out_bills = float(db.session.query(
-            func.coalesce(func.sum(PaymentMade.amount), 0)
-        ).filter(
-            PaymentMade.user_id == current_user.id,
-            PaymentMade.date >= m_start,
-            PaymentMade.date <= m_end
-        ).scalar())
-        cash_out_petty = float(db.session.query(
-            func.coalesce(func.sum(Expense.amount), 0)
-        ).filter(
-            Expense.user_id == current_user.id,
-            Expense.date >= m_start,
-            Expense.date <= m_end
-        ).scalar())
-        cf_out_data.append(cash_out_bills + cash_out_petty)
+    # cf_in_data and cf_out_data already computed above in the grouped query
 
     # ─── TOP CUSTOMERS BY REVENUE (YTD) ──────────────
     top_customers = db.session.query(

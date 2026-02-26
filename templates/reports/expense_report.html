@@ -9,29 +9,35 @@
     </div>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body py-2">
+<div class="card mb-3 filter-bar">
+    <div class="card-body py-2 px-3">
         <form method="GET" class="row g-2 align-items-end">
             <div class="col-6 col-sm-auto">
-                <label class="form-label mb-0">From</label>
+                <label class="form-label mb-0" style="font-size:.72rem;">From</label>
                 <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start.isoformat() }}">
             </div>
             <div class="col-6 col-sm-auto">
-                <label class="form-label mb-0">To</label>
+                <label class="form-label mb-0" style="font-size:.72rem;">To</label>
                 <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end.isoformat() }}">
+            </div>
+            <div class="col-6 col-sm-auto">
+                <label class="form-label mb-0" style="font-size:.72rem;">Category</label>
+                <select name="category" class="form-select form-select-sm">
+                    <option value="">All Categories</option>
+                    {% for cat in all_categories %}
+                    <option value="{{ cat }}" {{ 'selected' if selected_category == cat }}>{{ cat }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="col-12 col-sm-auto"><button class="btn btn-sm btn-primary">Apply</button></div>
         </form>
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-4">
-        <div class="stat-card bg-danger-gradient">
-            <div class="stat-label">Total Expenses</div>
-            <div class="stat-value">{{ currency_symbol }}{{ "{:,.2f}".format(total_expenses) }}</div>
-            <div class="stat-icon"><i class="bi bi-credit-card"></i></div>
-        </div>
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2 px-3 text-center">
+        <small class="text-muted" style="font-size:.72rem;"><i class="bi bi-credit-card me-1"></i>Total Expenses</small>
+        <div class="fw-bold text-danger" style="font-size:1.1rem;">{{ currency_symbol }}{{ "{:,.2f}".format(total_expenses) }}</div>
     </div>
 </div>
 
@@ -42,14 +48,14 @@
     <div class="card-body p-0">
         <div class="table-responsive">
         <table class="table mb-0">
-            <thead><tr><th>Category</th><th class="text-end">Count</th><th class="text-end">Amount</th><th class="text-end">% of Total</th></tr></thead>
+            <thead><tr><th>Category</th><th class="text-end d-table-cell-md">Count</th><th class="text-end">Amount</th><th class="text-end d-table-cell-md">% of Total</th></tr></thead>
             <tbody>
                 {% for cat in by_category %}
                 <tr>
                     <td class="fw-medium">{{ cat.category or 'Uncategorized' }}</td>
-                    <td class="text-end">{{ cat.count }}</td>
+                    <td class="text-end d-table-cell-md">{{ cat.count }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(cat.total) }}</td>
-                    <td class="text-end">{{ "{:.1f}%".format(cat.total / total_expenses * 100) if total_expenses else '0%' }}</td>
+                    <td class="text-end d-table-cell-md">{{ "{:.1f}%".format(cat.total / total_expenses * 100) if total_expenses else '0%' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -66,16 +72,16 @@
         <div class="table-responsive">
         <table class="table mb-0">
             <thead>
-                <tr><th>Exp #</th><th>Date</th><th>Category</th><th>Description</th><th>Vendor</th><th class="text-end">Amount</th></tr>
+                <tr><th>Exp #</th><th class="d-table-cell-lg">Date</th><th class="d-table-cell-md">Category</th><th class="d-table-cell-lg">Description</th><th class="d-table-cell-lg">Vendor</th><th class="text-end">Amount</th></tr>
             </thead>
             <tbody>
                 {% for e in expenses %}
                 <tr>
                     <td class="fw-medium">{{ e.expense_number }}</td>
-                    <td>{{ e.date.strftime('%b %d, %Y') }}</td>
-                    <td>{{ e.category or '—' }}</td>
-                    <td>{{ (e.description[:40] + '...') if e.description and e.description|length > 40 else (e.description or '—') }}</td>
-                    <td>{{ e.vendor.name if e.vendor else '—' }}</td>
+                    <td class="d-table-cell-lg">{{ e.date.strftime('%b %d, %Y') }}</td>
+                    <td class="d-table-cell-md">{{ e.category or '—' }}</td>
+                    <td class="d-table-cell-lg">{{ (e.description[:40] + '...') if e.description and e.description|length > 40 else (e.description or '—') }}</td>
+                    <td class="d-table-cell-lg">{{ e.vendor.name if e.vendor else '—' }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(e.amount) }}</td>
                 </tr>
                 {% endfor %}

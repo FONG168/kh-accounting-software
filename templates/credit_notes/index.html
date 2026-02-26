@@ -13,10 +13,10 @@
             <thead>
                 <tr>
                     <th>CN #</th>
-                    <th>Date</th>
+                    <th class="d-table-cell-lg">Date</th>
                     <th>Customer</th>
-                    <th>Invoice</th>
-                    <th>Reason</th>
+                    <th class="d-table-cell-lg">Invoice</th>
+                    <th class="d-table-cell-md">Reason</th>
                     <th class="text-end">Total</th>
                     <th>Status</th>
                     <th class="text-end">Actions</th>
@@ -26,10 +26,10 @@
                 {% for cn in credit_notes %}
                 <tr>
                     <td><a href="{{ url_for('credit_notes.view', id=cn.id) }}">{{ cn.credit_note_number }}</a></td>
-                    <td>{{ cn.date.strftime('%b %d, %Y') }}</td>
+                    <td class="d-table-cell-lg">{{ cn.date.strftime('%b %d, %Y') }}</td>
                     <td>{{ cn.customer.name }}</td>
-                    <td>{{ cn.invoice.invoice_number if cn.invoice else '—' }}</td>
-                    <td>{{ cn.reason | truncate(40) }}</td>
+                    <td class="d-table-cell-lg">{{ cn.invoice.invoice_number if cn.invoice else '—' }}</td>
+                    <td class="d-table-cell-md">{{ cn.reason | truncate(40) }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(cn.total) }}</td>
                     <td>
                         {% if cn.status == 'applied' %}

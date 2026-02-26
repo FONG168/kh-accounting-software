@@ -72,7 +72,7 @@ def create():
             flash('Journal entry must be balanced (debits = credits).', 'danger')
         else:
             db.session.add(entry)
-            db.session.commit()
+            db.session.flush()
             log_activity('create', 'Journal Entry', entry.id, entry.entry_number,
                          f'Created journal entry {entry.entry_number}: {entry.description}')
             db.session.commit()

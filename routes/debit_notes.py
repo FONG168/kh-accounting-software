@@ -177,7 +177,7 @@ def create():
                     else:
                         bill.status = 'partial'
 
-            db.session.commit()
+            db.session.flush()
             log_activity('create', 'Debit Note', dn.id, dn.debit_note_number,
                          f'Created debit note {dn.debit_note_number} for {dn.vendor.name}')
             db.session.commit()

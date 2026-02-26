@@ -107,7 +107,8 @@ def record_stock_in(bill):
     for item in bill.items:
         if item.product and not item.product.is_service:
             item.product.quantity_on_hand = float(item.product.quantity_on_hand or 0) + float(item.quantity)
-            item.product.cost_price = item.unit_cost  # update latest cost
+            if float(item.unit_cost or 0) > 0:
+                item.product.cost_price = item.unit_cost  # update latest cost only if non-zero
             sm = StockMovement(
                 product_id=item.product.id,
                 date=bill.date,
@@ -124,16 +125,52 @@ def record_stock_in(bill):
 @purchases_bp.route('/')
 @login_required
 def index():
-    bills = Bill.query.filter_by(user_id=current_user.id).order_by(Bill.date.desc(), Bill.id.desc()).all()
+    query = Bill.query.filter_by(user_id=current_user.id)
 
-    # Auto-update overdue status
+    # --- Filters ---
+    search_q      = request.args.get('q', '').strip()
+    filter_vendor  = request.args.get('vendor', '')
+    filter_status  = request.args.get('status', '')
+    filter_from    = request.args.get('date_from', '')
+    filter_to      = request.args.get('date_to', '')
+
+    if search_q:
+        like = f'%{search_q}%'
+        query = query.filter(
+            db.or_(
+                Bill.bill_number.ilike(like),
+                Bill.vendor.has(Vendor.name.ilike(like)),
+            )
+        )
+    if filter_vendor:
+        query = query.filter(Bill.vendor_id == int(filter_vendor))
+    if filter_status:
+        query = query.filter(Bill.status == filter_status)
+    if filter_from:
+        query = query.filter(Bill.date >= filter_from)
+    if filter_to:
+        query = query.filter(Bill.date <= filter_to)
+
+    bills = query.order_by(Bill.date.desc(), Bill.id.desc()).all()
+
+    # Auto-update overdue status and recalculate balances
     today = date.today()
+    _changed = False
     for bill in bills:
+        bill.recalculate()
         if bill.status in ('owed', 'received', 'partial') and bill.due_date and bill.due_date < today:
             bill.status = 'overdue'
-    db.session.commit()
+        _changed = True
+    if _changed:
+        db.session.commit()
 
-    return render_template('purchases/index.html', bills=bills, today=today)
+    # Vendor list for filter dropdown
+    vendors = Vendor.query.filter_by(user_id=current_user.id).order_by(Vendor.name).all()
+
+    return render_template('purchases/index.html', bills=bills, today=today,
+                           vendors=vendors, search_q=search_q,
+                           filter_vendor=filter_vendor, filter_status=filter_status,
+                           filter_from=filter_from, filter_to=filter_to)
 
 
 @purchases_bp.route('/create', methods=['GET', 'POST'])
@@ -259,11 +296,10 @@ def create():
                 if vendor:
                     vendor.balance -= bill.total
 
-                db.session.commit()
-                flash(f'Bill {bill.bill_number} created and PAID immediately. Stock updated.', 'success')
                 log_activity('create', 'Bill', bill.id, bill.bill_number,
                              f'Cash purchase {bill.bill_number} from {bill.vendor.name} for {bill.total:,.2f}')
                 db.session.commit()
+                flash(f'Bill {bill.bill_number} created and PAID immediately. Stock updated.', 'success')
                 return redirect(url_for('purchases.view', id=bill.id))
 
             else:
@@ -272,11 +308,10 @@ def create():
                     bill.due_date = bill.date + timedelta(days=30)
                 bill.status = 'owed'
 
-                db.session.commit()
-                flash(f'Bill {bill.bill_number} created as OWED. Due: {bill.due_date.strftime("%b %d, %Y")}. Stock updated.', 'success')
                 log_activity('create', 'Bill', bill.id, bill.bill_number,
                              f'Credit purchase {bill.bill_number} from {bill.vendor.name} for {bill.total:,.2f}')
                 db.session.commit()
+                flash(f'Bill {bill.bill_number} created as OWED. Due: {bill.due_date.strftime("%b %d, %Y")}. Stock updated.', 'success')
                 return redirect(url_for('purchases.view', id=bill.id))
 
     vendors = Vendor.query.filter_by(is_active=True, user_id=current_user.id).order_by(Vendor.name).all()
@@ -296,11 +331,125 @@ def create():
 @login_required
 def view(id):
     bill = Bill.query.filter_by(id=id, user_id=current_user.id).first_or_404()
+    # Recalculate to ensure status/balance match actual payments
+    bill.recalculate()
     # Auto-update overdue
     if bill.status in ('owed', 'received', 'partial') and bill.due_date and bill.due_date < date.today():
         bill.status = 'overdue'
-        db.session.commit()
+    db.session.commit()
     return render_template('purchases/view.html', bill=bill, today=date.today())
+
+
+@purchases_bp.route('/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit(id):
+    bill = Bill.query.filter_by(id=id, user_id=current_user.id).first_or_404()
+
+    vendors = Vendor.query.filter_by(is_active=True, user_id=current_user.id).order_by(Vendor.name).all()
+    products = Product.query.filter_by(is_active=True, user_id=current_user.id).order_by(Product.name).all()
+    bank_accounts = Account.query.filter(
+        Account.account_type == 'Asset',
+        Account.sub_type.in_(['Current Asset']),
+        Account.user_id == current_user.id
+    ).order_by(Account.code).all()
+
+    if request.method == 'POST':
+        bill_date = date.fromisoformat(request.form['date'])
+
+        # Period locking check
+        if FiscalPeriod.is_period_locked(bill_date, current_user.id):
+            flash(f'Cannot edit bill in a locked fiscal period ({bill_date.strftime("%B %Y")}).', 'danger')
+            return render_template('purchases/form.html', bill=bill, vendors=vendors,
+                                   products=products, bank_accounts=bank_accounts, today=date.today())
+
+        # ── 1. REVERSE old stock movements for inventory items ──
+        settings = CompanySettings.query.filter_by(user_id=current_user.id).first()
+        is_service_biz = settings and settings.business_type == 'service'
+        if not is_service_biz:
+            for item in bill.items:
+                if item.product and not item.product.is_service:
+                    item.product.quantity_on_hand = float(item.product.quantity_on_hand or 0) - float(item.quantity)
+            # Delete old stock movements for this bill
+            StockMovement.query.filter_by(reference=bill.bill_number, user_id=current_user.id, movement_type='in').delete()
+
+        # ── 2. REVERSE old vendor balance ──
+        old_vendor = Vendor.query.filter_by(id=bill.vendor_id, user_id=current_user.id).first()
+        if old_vendor:
+            old_vendor.balance -= bill.total
+
+        # ── 3. Delete old journal entry ──
+        if bill.journal_entry_id:
+            old_je = JournalEntry.query.get(bill.journal_entry_id)
+            if old_je:
+                JournalLine.query.filter_by(journal_entry_id=old_je.id).delete()
+                db.session.delete(old_je)
+            bill.journal_entry_id = None
+
+        # ── 4. Update bill header ──
+        bill.vendor_id = int(request.form['vendor_id'])
+        bill.date = bill_date
+        bill.due_date = date.fromisoformat(request.form['due_date']) if request.form.get('due_date') else None
+        bill.tax_rate = float(request.form.get('tax_rate', 0) or 0)
+        bill.notes = request.form.get('notes', '')
+
+        # ── 5. Replace line items ──
+        BillItem.query.filter_by(bill_id=bill.id).delete()
+        bill.items = []
+        item_count = int(request.form.get('item_count', 0))
+        for i in range(item_count):
+            desc = request.form.get(f'items-{i}-description', '')
+            if not desc:
+                continue
+            qty = float(request.form.get(f'items-{i}-quantity', 1) or 1)
+            cost = float(request.form.get(f'items-{i}-unit_price', 0) or 0)
+            product_id = request.form.get(f'items-{i}-product_id') or None
+
+            item = BillItem(
+                bill_id=bill.id,
+                product_id=int(product_id) if product_id else None,
+                description=desc,
+                quantity=qty,
+                unit_cost=cost,
+                amount=qty * cost,
+            )
+            bill.items.append(item)
+
+        if not bill.items:
+            flash('At least one line item is required.', 'warning')
+            return render_template('purchases/form.html', bill=bill, vendors=vendors,
+                                   products=products, bank_accounts=bank_accounts, today=date.today())
+
+        # ── 6. Recalculate totals ──
+        bill.recalculate()
+        db.session.flush()
+
+        # ── 7. Re-create journal entry ──
+        je = create_bill_journal_entry(bill)
+        if je:
+            bill.journal_entry_id = je.id
+
+        # ── 8. Re-record stock movements ──
+        record_stock_in(bill)
+
+        # ── 9. Update vendor balance with new total ──
+        vendor = Vendor.query.filter_by(id=bill.vendor_id, user_id=current_user.id).first()
+        if vendor:
+            vendor.balance += bill.total
+
+        # ── 10. Re-check payment status ──
+        bill.recalculate()
+
+        log_activity('update', 'Bill', bill.id, bill.bill_number,
+                     f'Edited bill {bill.bill_number} — new total {bill.total:,.2f}')
+        db.session.commit()
+        flash(f'Bill {bill.bill_number} updated successfully.', 'success')
+        return redirect(url_for('purchases.view', id=bill.id))
+
+    # GET — render form with existing data
+    return render_template('purchases/form.html', bill=bill, vendors=vendors,
+                           products=products, bank_accounts=bank_accounts,
+                           today=date.today(),
+                           due_default=bill.due_date.isoformat() if bill.due_date else '')
 
 
 @purchases_bp.route('/delete/<int:id>', methods=['POST'])
@@ -356,22 +505,20 @@ def create_payment():
         if bill_id:
             bill = Bill.query.filter_by(id=int(bill_id), user_id=current_user.id).first()
             if bill:
-                bill.amount_paid += amount
-                bill.balance_due = bill.total - bill.amount_paid
-                if bill.balance_due <= 0.01:
+                bill.amount_paid = Decimal(str(bill.amount_paid or 0)) + Decimal(str(amount))
+                bill.balance_due = Decimal(str(bill.total)) - bill.amount_paid
+                if bill.balance_due <= Decimal('0.01'):
                     bill.status = 'paid'
                     bill.paid_date = payment.date
-                    bill.balance_due = 0
+                    bill.balance_due = Decimal('0')
                 else:
                     bill.status = 'partial'
 
         # Update vendor balance
         if vendor:
-            vendor.balance -= amount
+            vendor.balance = Decimal(str(vendor.balance or 0)) - Decimal(str(amount))
 
         db.session.add(payment)
-        db.session.commit()
-
         log_activity('create', 'Payment Made', payment.id, payment.payment_number,
                      f'Payment {payment.payment_number} of {amount:,.2f} to {vendor.name if vendor else "vendor"}')
         db.session.commit()

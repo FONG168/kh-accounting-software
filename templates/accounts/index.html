@@ -20,7 +20,7 @@
                 <tr>
                     <th style="width:100px">Code</th>
                     <th>Account Name</th>
-                    <th>Sub-Type</th>
+                    <th class="d-table-cell-lg">Sub-Type</th>
                     <th class="text-end">Balance</th>
                     <th style="width:120px">Actions</th>
                 </tr>
@@ -34,7 +34,7 @@
                         {{ acct.name }}
                         {% if acct.is_system %}<span class="badge bg-secondary ms-1">System</span>{% endif %}
                     </td>
-                    <td class="text-muted">{{ acct.sub_type or '—' }}</td>
+                    <td class="text-muted d-table-cell-lg">{{ acct.sub_type or '—' }}</td>
                     <td class="text-end amount">{{ currency_symbol }}{{ "{:,.2f}".format(acct.get_balance()) }}</td>
                     <td>
                         <a href="{{ url_for('accounts.edit', id=acct.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>

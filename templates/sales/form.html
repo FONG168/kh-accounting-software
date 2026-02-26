@@ -208,7 +208,7 @@
     window.productOptions = `{% for p in products %}<option value="{{ p.id }}" data-item-type="{{ p.item_type or ('service' if p.is_service else 'product') }}">{{ p.sku }} - {{ p.name }}</option>{% endfor %}`;
     window.productData = {
         {% for p in products %}
-        '{{ p.id }}': { name: '{{ p.name }}', price: {{ p.selling_price }}, cost: {{ p.cost_price }}, stock: {{ p.quantity_on_hand|float }}, isService: {{ 'true' if p.is_service else 'false' }}, unit: '{{ p.unit }}', itemType: '{{ p.item_type or ("service" if p.is_service else "product") }}', subCategory: '{{ p.sub_category or "" }}', taxType: '{{ p.tax_type or "taxable" }}' },
+        '{{ p.id }}': { name: '{{ p.name }}', price: {{ p.selling_price|default(0, true) }}, cost: {{ p.cost_price|default(0, true) }}, stock: {{ p.quantity_on_hand|float }}, isService: {{ 'true' if p.is_service else 'false' }}, unit: '{{ p.unit }}', itemType: '{{ p.item_type or ("service" if p.is_service else "product") }}', subCategory: '{{ p.sub_category or "" }}', taxType: '{{ p.tax_type or "taxable" }}' },
         {% endfor %}
     };
 

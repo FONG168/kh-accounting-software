@@ -448,6 +448,11 @@ def choose_industry():
         _seed_default_and_ifrs_accounts_for_user(current_user.id)
         _seed_industry_accounts(industry.get('extra_accounts', []))
 
+        log_activity('create', 'CompanySettings', settings.id if settings else None,
+                     settings.company_name if settings else company_name,
+                     f'Initial business setup: industry={industry["name"]}, currency={currency_symbol}')
+        db.session.commit()
+
         flash(f'Business set up as "{industry["name"]}" — categories and accounts configured!', 'success')
         return redirect(url_for('dashboard.index'))
 
@@ -480,6 +485,11 @@ def change_industry():
         db.session.commit()
         _replace_industry_categories(industry['categories'])
         _seed_industry_accounts(industry.get('extra_accounts', []))
+
+        log_activity('update', 'CompanySettings', settings.id if settings else None,
+                     settings.company_name,
+                     f'Industry changed to "{industry["name"]}"')
+        db.session.commit()
 
         flash(f'Business type changed to "{industry["name"]}" — categories updated automatically!', 'success')
         return redirect(url_for('setup.settings'))
@@ -582,6 +592,10 @@ def settings():
                     company.logo = ''
 
         db.session.commit()
+        log_activity('update', 'CompanySettings', company.id,
+                     company.company_name,
+                     f'Company settings updated (section: {form_section})')
+        db.session.commit()
         flash('Company settings updated.', 'success')
         return redirect(url_for('setup.settings'))
 
@@ -594,6 +608,9 @@ def settings():
 def cloud_backup():
     """Manual full backup to Firebase."""
     success, message = full_backup()
+    log_activity('backup', 'System', None, 'Cloud Backup',
+                 f'Cloud backup {"completed successfully" if success else "failed"}: {message}')
+    db.session.commit()
     flash(message, 'success' if success else 'danger')
     return redirect(url_for('setup.settings'))
 
@@ -603,6 +620,9 @@ def cloud_backup():
 def cloud_restore():
     """Restore all data from Firebase to local SQLite."""
     success, message = full_restore()
+    log_activity('restore', 'System', None, 'Cloud Restore',
+                 f'Cloud restore {"completed successfully" if success else "failed"}: {message}')
+    db.session.commit()
     flash(message, 'success' if success else 'danger')
     return redirect(url_for('setup.settings'))
 

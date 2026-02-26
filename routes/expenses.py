@@ -119,7 +119,6 @@ def create():
         expense.journal_entry_id = je.id
 
         db.session.add(expense)
-        db.session.commit()
         log_activity('create', 'Expense', expense.id, expense.expense_number,
                      f'Petty cash expense {expense.expense_number}: {category} {amount:,.2f}')
         db.session.commit()
