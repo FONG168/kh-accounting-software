@@ -126,6 +126,34 @@ body, .sidebar, .main-content, .top-navbar, .card, .table,
     box-shadow: 0 2px 10px rgba(99,102,241,0.35);
 }
 
+/* ── Sidebar Text Logo (matches homepage style) ── */
+.brand-text-logo {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.brand-text-logo .logo-kh {
+    font-family: 'Inter', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    line-height: 1;
+    background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 40%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 8px rgba(99,102,241,0.3));
+}
+
+.brand-text-logo .logo-kh .logo-dot {
+    -webkit-text-fill-color: #6366f1;
+    font-size: 1.9rem;
+    line-height: 0;
+    vertical-align: baseline;
+}
+
 .brand-text {
     display: flex;
     flex-direction: column;
@@ -135,19 +163,26 @@ body, .sidebar, .main-content, .top-navbar, .card, .table,
 
 .brand-name {
     font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: 0.2px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
     color: #fff;
+    background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     white-space: nowrap;
 }
 
 .brand-edition {
     font-size: 0.6rem;
-    font-weight: 600;
-    letter-spacing: 2px;
+    font-weight: 700;
+    letter-spacing: 3px;
     text-transform: uppercase;
-    color: var(--accent);
-    margin-top: 1px;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-top: 2px;
 }
 
 .sidebar-nav {

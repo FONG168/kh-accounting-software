@@ -185,7 +185,8 @@ def create():
             return redirect(url_for('debit_notes.index'))
 
     vendors = Vendor.query.filter_by(is_active=True, user_id=current_user.id).order_by(Vendor.name).all()
-    products = Product.query.filter_by(is_active=True, user_id=current_user.id).order_by(Product.name).all()
+    products_raw = Product.query.filter_by(is_active=True, user_id=current_user.id).order_by(Product.name).all()
+    products = [{'id': p.id, 'name': p.name, 'selling_price': float(p.selling_price or 0)} for p in products_raw]
     bills = Bill.query.filter_by(user_id=current_user.id).order_by(Bill.id.desc()).all()
     return render_template('debit_notes/form.html', dn=None, vendors=vendors,
                            products=products, bills=bills, today=date.today())

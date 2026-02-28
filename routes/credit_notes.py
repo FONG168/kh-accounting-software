@@ -170,7 +170,8 @@ def create():
             return redirect(url_for('credit_notes.index'))
 
     customers = Customer.query.filter_by(is_active=True, user_id=current_user.id).order_by(Customer.name).all()
-    products = Product.query.filter_by(is_active=True, user_id=current_user.id).order_by(Product.name).all()
+    products_raw = Product.query.filter_by(is_active=True, user_id=current_user.id).order_by(Product.name).all()
+    products = [{'id': p.id, 'name': p.name, 'selling_price': float(p.selling_price or 0)} for p in products_raw]
     invoices = Invoice.query.filter_by(user_id=current_user.id).order_by(Invoice.id.desc()).all()
     return render_template('credit_notes/form.html', cn=None, customers=customers,
                            products=products, invoices=invoices, today=date.today())
